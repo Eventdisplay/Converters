@@ -1,11 +1,14 @@
 # Eventdisplay to DL2 FITS format
 
-Example of use:
+Example of use
+----------
 
 ```shell
 python generate_DL2_file.py gamma_cone.S.3HB9-FD_ID0.eff-0.root myfile.fits lapalma
 ```
 
+Format definition
+-------------
 Note the DL2 format used is based on the open DL3 specifications from:
 
 https://github.com/open-gamma-ray-astro/gamma-astro-data-formats
