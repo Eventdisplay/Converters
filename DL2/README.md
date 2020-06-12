@@ -28,12 +28,18 @@ ColDefs(
 )
 ```
 
-* Adding an additional table to the FITS file with a histogram containing the number of simulated events vs `MC_ENERGY`.
+* Adding an additional binary table to the FITS file containing a histogram with the number of simulated events vs `MC_ENERGY`.
 ```bash
 No.    Name      Ver    Type      Cards   Dimensions   Format
   0  PRIMARY       1 PrimaryHDU       7   ()      
   1  EVENTS        1 BinTableHDU     44   549346R x 9C   [1K, 1K, 1E, 1E, 1E, 1E, 1E, 1E, 1J]   
   2  SIMULATED EVENTS    1 BinTableHDU     21   1R x 3C   [60E, 60E, 60E]  
+
+ColDefs(
+    name = 'MC_ENERG_LO'; format = '60E'; unit = 'TeV'
+    name = 'MC_ENERG_HI'; format = '60E'; unit = 'TeV'
+    name = 'EVENTS'; format = '60E'
+)
 ```
 
  
