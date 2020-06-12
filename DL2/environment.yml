@@ -1,0 +1,19 @@
+# Conda environment 
+#
+# Install:
+# conda env create -f environment.yml
+# conda activate EDconvert
+#
+name: EDconvert
+
+channels:
+  - astropy
+  - defaults
+
+dependencies:
+  - numpy
+  - astropy
+  - click
+  - python==3.7
+  - uproot
+  - matplotlib
