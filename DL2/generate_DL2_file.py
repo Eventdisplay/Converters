@@ -16,30 +16,16 @@ cuts_info += ' 2: Events surviving gamma/hadron separation and direction cuts. [
 @click.command(context_settings=CONTEXT_SETTINGS)
 @click.argument('filename', metavar='<filename>', type=click.Path(exists=True))
 @click.option('--cut_level', '-c', nargs=1, type=click.INT, help=cuts_info)
-# @click.option('--runlist', '-l', nargs=1, type=click.Path(exists=True), help='Particle files runlist')
-# @click.option('--gen_index_file', '-g', is_flag=True,
-#               help='Generate hdu and observation index list files. Only have effect in file list mode.')
-# @click.option('--save_multiplicity', '-m', is_flag=True,
-#               help='Save telescope multiplicity into event list')
-# @click.option('--ed', '-e', is_flag=True, help='ED mode')
-# @click.option('--filename_to_obsid', '-I', is_flag=True, help='Override OBS_ID with output filename')
-# @click.option('--full-enclosure', is_flag=True, help='Store full-enclosure IRFs (no direction cut applied)')
-# @click.option('--point-like', is_flag=True, help='Store point-like IRFs (direction cut applied)')
 @click.option('--debug', '-d', is_flag=True)
-# @click.option('--verbose', '-v', is_flag=True, help='Print root output')
 @click.argument('output', metavar='<output>')
 @click.argument('site', metavar='<site>')
 def cli(filename, cut_level, debug, output, site):
     """Command line tool for converting ED root files to "DL2-like" fits files
 
     \b
-    There are two modes:
-        1) Single file mode
-            When --filename is invoked, the path to the ED file should be provided. The <output> argument
-            is then the resulting fits file name.
-        2) File list mode
-            When using the option --runlist, the path to a stage6 runlist should be used.
-            The <output> is then the directory to which the fits files will be saved to.
+    For the moment, just one mode is implemented:
+
+
 
     Note: One one mode can be used at a time.
     """
