@@ -81,6 +81,8 @@ def cli(filename, cut_level, debug, output, site):
     mask_before_cuts = np.logical_or(mask_gamma_like_no_direction, cuts.array('CutClass') == 5)
     mask_before_cuts = np.logical_or(mask_before_cuts, cuts.array('CutClass') == 7)
 
+
+
     if cut_level is 0:
         data_mask = mask_before_cuts
     elif cut_level is 1:
@@ -92,18 +94,30 @@ def cli(filename, cut_level, debug, output, site):
     event_id = data.array("eventNumber")[data_mask]     # event_id = tb.Int32Col(dflt=-1, pos=1)
     NTels_trig = data.array("NTrig")[data_mask]         # NTels_trig = tb.Int16Col(dflt=0, pos=2)
     NTels_reco = data.array("NImages")[data_mask]       # NTels_reco = tb.Int16Col(dflt=0, pos=3)
-    if site.lower().find("paranal") >= 0:
-        NTels_reco_lst = [images_type[2] for images_type in data.array("NImages_Ttype")[data_mask]]
-                                                            # (2)  NTels_reco_lst = tb.Int16Col(dflt=0, pos=4)
-        NTels_reco_mst = [images_type[1] for images_type in data.array("NImages_Ttype")[data_mask]]
-                                                            # (1)  NTels_reco_mst = tb.Int16Col(dflt=0, pos=5)
-        NTels_reco_sst = [images_type[0] for images_type in data.array("NImages_Ttype")[data_mask]]
-                                                            # (0)  NTels_reco_sst = tb.Int16Col(dflt=0, pos=6)
-    else:
-        NTels_reco_lst = [images_type[1] for images_type in data.array("NImages_Ttype")[data_mask]]
-                                                            # (2)  NTels_reco_lst = tb.Int16Col(dflt=0, pos=4)
-        NTels_reco_mst = [images_type[0] for images_type in data.array("NImages_Ttype")[data_mask]]
-                                                            # (1)  NTels_reco_mst = tb.Int16Col(dflt=0, pos=5)
+
+    # Definition of TtypeID within eventDisplay:
+    all_ttypes = {138704810: 'LST',
+                  10408618: 'MST-FlashCam',
+                  10408418: 'MST-NectarCam',
+                  201511619: 'SST-ASTRI',
+                  201309316: 'SST-GC',
+                  909924: 'SST-DC',
+                  207308707: 'MST-SC'}
+
+    # Identify the telescope types within the 'NImages_Ttype' array:
+    tel_types = [all_ttypes[t] for t in data.array("TtypeID")[0]]
+    print('File containing the following telescope types: {}'.format(tel_types))
+    for i, tel in enumerate(tel_types):
+        # TODO: Note if some MSTs are of one type and some other MSTs of another, this will not work.
+        # TODO: The solution is perhaps to store as NTels_reco[all_telescope_types], or more simply
+        # TODO: a dictionary.
+        if 'LST' in tel:
+            NTels_reco_lst = [images_type[i] for images_type in data.array("NImages_Ttype")[data_mask]]
+        if 'MST' in tel:
+            NTels_reco_mst = [images_type[i] for images_type in data.array("NImages_Ttype")[data_mask]]
+        if 'SST' in tel:
+            NTels_reco_sst = [images_type[i] for images_type in data.array("NImages_Ttype")[data_mask]]
+
     mc_energy = data.array("MCe0")[data_mask]  # mc_energy = tb.Float32Col(dflt=np.nan, pos=7)
     reco_energy = data.array("ErecS")[data_mask]  # reco_energy = tb.Float32Col(dflt=np.nan, pos=8)
     mc_alt = 90 - data.array("MCze")[data_mask]
