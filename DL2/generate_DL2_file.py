@@ -81,14 +81,16 @@ def cli(filename, cut_level, debug, output, site):
     mask_before_cuts = np.logical_or(mask_gamma_like_no_direction, cuts.array('CutClass') == 5)
     mask_before_cuts = np.logical_or(mask_before_cuts, cuts.array('CutClass') == 7)
 
-
-
     if cut_level is 0:
         data_mask = mask_before_cuts
     elif cut_level is 1:
         data_mask = mask_gamma_like_no_direction
     elif cut_level is 2:
         data_mask = mask_gamma_like_and_direction
+
+    # Remove events with NTtype!=2 in case of La Palma, and NTtype!=3 for Paranal.
+    required_nttype = 2 if "lapalma" in site.lower() else 3
+    data_mask = np.logical_and(data_mask, data.array("NTtype") == required_nttype)
 
     obs_id = data.array("runNumber")[data_mask]         # obs_id = tb.Int16Col(dflt=-1, pos=0)
     event_id = data.array("eventNumber")[data_mask]     # event_id = tb.Int32Col(dflt=-1, pos=1)
