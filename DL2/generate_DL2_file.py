@@ -126,6 +126,8 @@ def cli(filename, cut_level, debug, output, site):
     mc_az = data.array("MCaz")[data_mask]
     reco_alt = 90 - data.array("Ze")[data_mask]  # reco_alt = tb.Float32Col(dflt=np.nan, pos=9)
     reco_az = data.array("Az")[data_mask]  # reco_az = tb.Float32Col(dflt=np.nan, pos=10)
+    # MVA is the g/h separation variable, defined between [-1, 1].
+    hadron_mva = cuts.array('MVA')[data_mask]
 
     pointing_elevation = data.array("ArrayPointing_Elevation")[data_mask]
     pointing_azimuth = data.array("ArrayPointing_Azimuth")[data_mask]
@@ -163,6 +165,7 @@ def cli(filename, cut_level, debug, output, site):
     evt_dict['AZ'] = reco_az
     evt_dict['ENERGY'] = reco_energy
     evt_dict['MULTIP'] = NTels_reco
+    evt_dict['GH_MVA'] = hadron_mva
 
     # Filling Header info
     evt_dict['ALT_PNT'] = pointing_elevation
@@ -205,7 +208,8 @@ def cli(filename, cut_level, debug, output, site):
                fits.Column(name='ALT', format='1E', array=evt_dict['ALT'], unit="deg"),
                fits.Column(name='AZ', format='1E', array=evt_dict['AZ'], unit="deg"),
                fits.Column(name='ENERGY', format='1E', array=evt_dict['ENERGY'], unit="TeV"),
-               fits.Column(name='MULTIP', format='1J', array=evt_dict['MULTIP'])
+               fits.Column(name='MULTIP', format='1J', array=evt_dict['MULTIP']),
+               fits.Column(name='GH_MVA', format='1E', array=evt_dict['GH_MVA'])
                ]
 
     # Create HDU
