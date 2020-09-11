@@ -1,5 +1,5 @@
 # Script to convert Eventdisplay DL2a output to FITS
-# 
+#
 # - expected Eventdisplay output including gamma/hadron cuts
 #
 #  Script by T.Hassan
@@ -12,6 +12,7 @@ cuts_info = 'Cut level of the events to be included.'
 cuts_info += ' 0: Events before applying gamma/hadron and direction cuts.'
 cuts_info += ' 1: Events surviving gamma/hadron separation cut and not direction cut.'
 cuts_info += ' 2: Events surviving gamma/hadron separation and direction cuts. [DEFAULT]'
+
 
 @click.command(context_settings=CONTEXT_SETTINGS)
 @click.argument('filename', metavar='<filename>', type=click.Path(exists=True))
@@ -81,11 +82,11 @@ def cli(filename, cut_level, debug, output, site):
     mask_before_cuts = np.logical_or(mask_gamma_like_no_direction, cuts.array('CutClass') == 5)
     mask_before_cuts = np.logical_or(mask_before_cuts, cuts.array('CutClass') == 7)
 
-    if cut_level is 0:
+    if cut_level == 0:
         data_mask = mask_before_cuts
-    elif cut_level is 1:
+    elif cut_level == 1:
         data_mask = mask_gamma_like_no_direction
-    elif cut_level is 2:
+    elif cut_level == 2:
         data_mask = mask_gamma_like_and_direction
 
     # Remove events with NTtype!=2 in case of La Palma, and NTtype!=3 for Paranal.
