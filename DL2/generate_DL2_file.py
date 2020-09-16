@@ -74,7 +74,6 @@ def cli(filename, cut_level, debug, output, site):
 
     logging.debug("Importing dependencies.")
     import uproot
-    import numpy as np
     from astropy import units as u
     from astropy.io import fits
     from astropy.table import Table
@@ -90,14 +89,14 @@ def cli(filename, cut_level, debug, output, site):
     tel_types = [TELESCOPE_TYPES[t] for t in data.array("TtypeID")[0]]
     print('File contains the following telescope types: {}'.format(tel_types))
 
-    cut_class =  cuts.array('CutClass')
+    cut_class = cuts.array('CutClass')
     # Cut 1: Events surviving gamma/hadron separation and direction cuts:
     mask_gamma_like_and_direction = cut_class == 5
 
-    # Cut 2: Events surviving gamma/hadron separation cut and not direction cut:
+    # Cut 2: Events surviving gamma/hadron separation cut and not direction cut
     mask_gamma_like_no_direction = cut_class == 0
 
-    # Cut 0: Events before gamma/hadron and direction cuts (classes 0, 5 and 7):
+    # Cut 0: Events before gamma/hadron and direction cuts (classes 0, 5 and 7)
     mask_before_cuts = mask_gamma_like_no_direction | mask_gamma_like_and_direction
     mask_before_cuts = mask_before_cuts | (cut_class == 7)
 
@@ -112,7 +111,7 @@ def cli(filename, cut_level, debug, output, site):
     required_nttype = REQUIRED_NTTYPE[site]
     data_mask = data_mask & (data.array("NTtype") == required_nttype)
 
-    # columns readble without transformation
+    # columns readable without transformation
     EVENTS_COLUMNS = {
         'OBS_ID': ('runNumber', None),
         'EVENT_ID': ('eventNumber', None),
@@ -189,10 +188,17 @@ def cli(filename, cut_level, debug, output, site):
     )
     hdu2.header.set('CREF3', '(MC_ENERG_LO:MC_ENERG_HI)', '')
 
+    run_header = particle_file['MC_runheader']
+    run_header = {
+        k.replace('_5f_', '_'): [getattr(run_header, '_' + k)]
+        for k in run_header._fields
+    }
+    run_header_hdu = fits.BinTableHDU(data=Table(run_header), name='RUNHEADER')
+
     logging.debug("Generating fits file.")
 
     # Generate output fits file:
-    hdulist = fits.HDUList([primary_hdu, events_hdu, hdu2])
+    hdulist = fits.HDUList([primary_hdu, events_hdu, hdu2, run_header_hdu])
     hdulist.writeto(output, overwrite=True)
 
 
