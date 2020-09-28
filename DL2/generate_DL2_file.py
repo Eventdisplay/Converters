@@ -65,7 +65,7 @@ def cli(filename, cut_level, debug, output, site):
     if output is None:
         click.secho("No output file specified.", fg='yellow')
         click.secho("We will use the same filename, changing the extension to fits.", fg='yellow')
-        output = filename.replace(".root", ".fits")
+        output = filename.replace(".root", ".fits.gz")
 
     if debug:
         logging.basicConfig(level=logging.DEBUG)
@@ -142,8 +142,12 @@ def cli(filename, cut_level, debug, output, site):
         90 - data.array("MCze")[data_mask], u.deg, copy=False
     )
     events['GH_MVA'] = cuts.array('MVA')[data_mask]
-    events['PNT_ALT'] = data.array("ArrayPointing_Elevation") * u.deg
-    events['PNT_AZ'] = data.array("ArrayPointing_Azimuth") * u.deg
+    events['PNT_ALT'] = u.Quantity(
+        data.array("ArrayPointing_Elevation")[data_mask], u.deg, copy=False
+    )
+    events['PNT_AZ'] = u.Quantity(
+        data.array("ArrayPointing_Azimuth")[data_mask], u.deg, copy=False
+    )
 
     logging.debug("Creating HDUs to be contained within the fits file.")
 
