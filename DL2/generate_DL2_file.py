@@ -20,6 +20,7 @@ TELESCOPE_TYPES = {
     10408618: 'MST-FlashCam',
     10608418: 'MST-NectarCam',
     201409917: 'SST',
+    909924: 'SST-DC',
 }
 
 REQUIRED_NTTYPE = {
@@ -78,7 +79,10 @@ def cli(filename, cut_level, debug, output, site):
 
     logging.debug("Opening Eventdisplay ROOT file and extracting content.")
     particle_file = uproot.open(filename)
-    mc_energy_hist = particle_file['hEmcUW']
+    if 'hEmcUW' in particle_file:
+        mc_energy_hist = particle_file['hEmcUW']
+    else:
+         mc_energy_hist = particle_file['hEmc']
     bin_content, bin_edges = mc_energy_hist.numpy()
     cuts = particle_file["fEventTreeCuts"]
     data = particle_file["data"]
