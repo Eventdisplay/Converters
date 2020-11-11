@@ -19,8 +19,10 @@ TELESCOPE_TYPES = {
     138704810: 'LST',
     10408618: 'MST-FlashCam',
     10608418: 'MST-NectarCam',
+    10408418: 'MST-NectarCam-Prod3b',
     201409917: 'SST',
     909924: 'SST-DC',
+    207308707: 'MST-SC'.
 }
 
 REQUIRED_NTTYPE = {
