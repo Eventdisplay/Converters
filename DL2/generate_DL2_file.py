@@ -28,7 +28,7 @@ HDUVERS = '0.2'
 )
 @click.option('--debug', '-d', is_flag=True)
 @click.option('-o', '--output')
-@click.option('-l ', '--layout', default='CTA-layout', help='layout name')
+@click.option('-l', '--layout', default='CTA-layout', help='layout name')
 def cli(filename, cut_level, debug, output, layout):
     """
     Command line tool for converting Eventdisplay root files to DL2 fits files
