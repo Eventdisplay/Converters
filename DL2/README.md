@@ -105,3 +105,17 @@ Links
 
 CTA internal prod3b redmine page: https://forge.in2p3.fr/projects/cta_analysis-and-simulations/wiki/Eventdisplay_Prod3b_DL2_Lists
 (older version; needs to be updated)
+
+# Installation
+
+Install the required packages and activate conda environment:
+
+```
+conda env create -f environment.yml
+conda activate DL2
+```
+
+Update your environment:
+```
+conda env update -f environment.yml
+```
