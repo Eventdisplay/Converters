@@ -15,5 +15,5 @@ dependencies:
   - astropy
   - click
   - python==3.7
-  - uproot
+  - uproot4
   - matplotlib
