@@ -31,7 +31,6 @@ HDUVERS = '0.2'
 @click.option('-l', '--layout', default='CTA-layout', help='layout name')
 def cli(filename, cut_level, debug, output, layout):
     """Command line tool for converting Eventdisplay root files to DL2 fits files"""
-
     if output is None:
         click.secho("No output file specified.", fg='yellow')
         click.secho("We will use the same filename, changing the extension to fits.", fg='yellow')
