@@ -77,8 +77,6 @@ def cli(filename, cut_level, debug, output, layout):
 
     # columns readable without transformation
     EVENTS_COLUMNS = {
-#        'OBS_ID': ('runNumber', None),
-#        'EVENT_ID': ('eventNumber', None),
         'MC_AZ': ('MCaz', u.deg),
         'MC_ALT': ('MCel', u.deg),
         'AZ': ('az', u.deg),
@@ -101,6 +99,8 @@ def cli(filename, cut_level, debug, output, layout):
         else:
             events[fits_key] = particle_file['DL2EventTree/'+ed_key].array(library='np')[data_mask]
 
+    # fake event numbers
+    events['EVENT_ID'] = np.arange(len(events['MC_AZ']))
     logging.debug("Creating HDUs to be contained within the fits file.")
 
     # Create primary HDU:
