@@ -90,7 +90,7 @@ DL2EventTree->Draw("MVA", "Class==0" );
 DL2EventTree->Draw("MVA", "Class==0||Class==7||Class==5", "");
 ```
 
-### Simulated events¶
+### Simulated events
 
 The simulated events vs energy are stored in a histogram in the file:
 
