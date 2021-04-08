@@ -60,15 +60,15 @@ DL2 events trees are called 'DL2EventTree' and include gamma/hadron cut statisti
 
 Data tree variables (subset):
 
-- MCe0 - MC energy (in TeV)
-- MCaz, MCel - MC shower direction
-- MCxoff and MCyoff - true position (relative to camera centre; in deg)
-- ArrayPointing_Azimuth, ArrayPointing_Elevation - telescope pointing direction
-- erec - reconstructed energy (in TeV)
-- nimages - number of images used for the reconstruction
-- xoff and xoff - reconstructed position (relative to camera centre; in deg)
-- Class - cut class defining different type of events (see below)
-- MVA - BDT mva parameter
+- MCe0: MC energy (in TeV)
+- MCaz, MCel: MC shower direction
+- MCxoff and MCyoff: true position (relative to camera centre; in deg)
+- ArrayPointing_Azimuth, ArrayPointing_Elevation: telescope pointing direction
+- erec: reconstructed energy (in TeV)
+- nimages: number of images used for the reconstruction
+- xoff and xoff: reconstructed position (relative to camera centre; in deg)
+- Class: cut class defining different type of events (see below)
+- MVA: BDT mva parameter
 
 The Class parameter can be used to select different type of events:
 
