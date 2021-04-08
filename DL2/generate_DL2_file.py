@@ -30,9 +30,7 @@ HDUVERS = '0.2'
 @click.option('-o', '--output')
 @click.option('-l', '--layout', default='CTA-layout', help='layout name')
 def cli(filename, cut_level, debug, output, layout):
-    """
-    Command line tool for converting Eventdisplay root files to DL2 fits files
-    """
+    """Command line tool for converting Eventdisplay root files to DL2 fits files"""
 
     if output is None:
         click.secho("No output file specified.", fg='yellow')
@@ -54,10 +52,6 @@ def cli(filename, cut_level, debug, output, layout):
     logging.debug("Opening Eventdisplay ROOT file and extracting content.")
     logging.info(f'Reading from {filename}')
     particle_file = uproot4.open(filename)
-    if 'hEmcUW' in particle_file:
-        mc_energy_hist = particle_file['hEmcUW']
-    else:
-         mc_energy_hist = particle_file['hEmc']
     bin_content, bin_edges = particle_file['hEmc'].to_numpy()
     site_altitude=uproot4.open(filename)['MC_runheader'].member('obsheight')
 
@@ -151,7 +145,7 @@ def cli(filename, cut_level, debug, output, layout):
     )
     hdu2.header.set('CREF3', '(MC_ENERG_LO:MC_ENERG_HI)', '')
 
-    run_header = { 
+    run_header = {
         k: [v]
         for k, v in particle_file['MC_runheader'].all_members.items()
            if k.find('@') != 0 and
