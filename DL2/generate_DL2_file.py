@@ -59,7 +59,6 @@ def cli(filename, cut_level, debug, output, layout):
     else:
          mc_energy_hist = particle_file['hEmc']
     bin_content, bin_edges = particle_file['hEmc'].to_numpy()
-    run_header_mc=uproot4.open(filename)['MC_runheader']
     site_altitude=uproot4.open(filename)['MC_runheader'].member('obsheight')
 
     cut_class = particle_file['DL2EventTree/CutClass'].array(library='np')
@@ -84,8 +83,8 @@ def cli(filename, cut_level, debug, output, layout):
 
     # columns readable without transformation
     EVENTS_COLUMNS = {
-        'OBS_ID': ('runNumber', None),
-        'EVENT_ID': ('eventNumber', None),
+#        'OBS_ID': ('runNumber', None),
+#        'EVENT_ID': ('eventNumber', None),
         'MC_AZ': ('MCaz', u.deg),
         'MC_ALT': ('MCel', u.deg),
         'AZ': ('az', u.deg),
