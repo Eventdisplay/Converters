@@ -106,7 +106,7 @@ Links
 CTA internal prod3b redmine page: https://forge.in2p3.fr/projects/cta_analysis-and-simulations/wiki/Eventdisplay_Prod3b_DL2_Lists
 (older version; needs to be updated)
 
-# Installation
+## Installation
 
 Install the required packages and activate conda environment:
 
