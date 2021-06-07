@@ -19,6 +19,7 @@ HDUCLASS = 'GADF'
 HDUDOC = 'https://gamma-astro-data-formats.readthedocs.io'
 HDUVERS = '0.2'
 
+
 @click.command(context_settings=CONTEXT_SETTINGS)
 @click.argument('filename', type=click.Path(exists=True, dir_okay=False))
 @click.option(
@@ -29,13 +30,25 @@ HDUVERS = '0.2'
 @click.option('--debug', '-d', is_flag=True)
 @click.option('-o', '--output')
 @click.option('-l', '--layout', default='CTA-layout', help='layout name')
-def cli(filename, cut_level, debug, output, layout):
+@click.option('-t', '--event_type', nargs=1, type=click.INT, default=-1,
+              help='Event type (in case they were computed)')
+def cli(filename, cut_level, debug, output, layout, event_type):
     """Command line tool for converting Eventdisplay root files to DL2 fits files"""
+    import numpy as np
+
     if output is None:
         click.secho("No output file specified.", fg='yellow')
         click.secho("We will use the same filename, changing the extension to fits.", fg='yellow')
-        output = filename.replace(".root", ".fits.gz")
+        if event_type > 0:
+            output = filename.replace(".root", "_event_type_{}.fits.gz".format(event_type))
+        else:
+            output = filename.replace(".root", ".fits.gz")
 
+    # If event_type is larger than 0, extract event-wise event types:
+    event_types = None
+    if event_type > 0:
+        event_types = np.loadtxt(filename.replace(".root", ".txt"), dtype=np.float)
+        event_types = event_types.astype(int)
     if debug:
         logging.basicConfig(level=logging.DEBUG)
     else:
@@ -51,8 +64,22 @@ def cli(filename, cut_level, debug, output, layout):
     logging.debug("Opening Eventdisplay ROOT file and extracting content.")
     logging.info(f'Reading from {filename}')
     particle_file = uproot4.open(filename)
-    bin_content, bin_edges = particle_file['hEmc'].to_numpy()
-    site_altitude=uproot4.open(filename)['MC_runheader'].member('obsheight')
+    # bin_content, bin_edges = particle_file['hEmcUW'].to_numpy()
+    bin_content, bin_edges = particle_file['hEmcUW'].to_numpy(flow=True)
+    # As the under and overflow bin edges are -/+ inf, let's grab the minimum and maximum energy from the
+    # MC run headers:
+    run_header = {
+        k: [v]
+        for k, v in particle_file['MC_runheader'].all_members.items()
+        if k.find('@') != 0 and
+           k != 'fName' and
+           k != 'fTitle'
+    }
+
+    bin_edges[0] = np.log10(run_header["E_range"][0][0])
+    bin_edges[-1] = np.log10(run_header["E_range"][0][1])
+
+    site_altitude = uproot4.open(filename)['MC_runheader'].member('obsheight')
 
     cut_class = particle_file['DL2EventTree/CutClass'].array(library='np')
     # Cut 1: Events surviving gamma/hadron separation and direction cuts:
@@ -65,14 +92,28 @@ def cli(filename, cut_level, debug, output, layout):
     mask_before_cuts = mask_gamma_like_no_direction | mask_gamma_like_and_direction
     mask_before_cuts = mask_before_cuts | (cut_class == 7)
 
-    if cut_level == 0:
+    if cut_level == 0 or event_type > 0:
         data_mask = mask_before_cuts
     elif cut_level == 1:
         data_mask = mask_gamma_like_no_direction
     elif cut_level == 2:
         data_mask = mask_gamma_like_and_direction
 
-    logging.info(f'Surviving events: {np.count_nonzero(data_mask)} (cut level {cut_level})')
+    logging.info(f'Total number of events read from root file: {len(data_mask)}')
+    logging.info(f'Total of selected events: {np.count_nonzero(data_mask)}')
+
+    if event_type > 0:
+        logging.info(f'Number of events within event_type file: {len(event_types)}')
+        logging.info(f'Ratio of training to simulated events: {np.sum(event_types == -1)/len(event_types)}')
+        logging.info(f'len(data_mask): {len(data_mask)}')
+        data_mask[data_mask == True] = event_types == event_type
+        if np.sum(data_mask) == 0:
+            raise ValueError("No events to export of event types == {}".format(event_type))
+        logging.info(f'Surviving events: {np.count_nonzero(data_mask)} (event type {event_type})')
+        logging.info(f'len(data_mask): {len(data_mask)}')
+
+    else:
+        logging.info(f'Surviving events: {np.count_nonzero(data_mask)} (cut level {cut_level})')
 
     # columns readable without transformation
     EVENTS_COLUMNS = {
@@ -100,6 +141,7 @@ def cli(filename, cut_level, debug, output, layout):
 
     # fake event numbers
     events['EVENT_ID'] = np.arange(len(events['MC_AZ']))
+    events['OBS_ID'] = particle_file['data/runNumber'].array(library='np')[data_mask]
     logging.debug("Creating HDUs to be contained within the fits file.")
 
     # Create primary HDU:
@@ -144,14 +186,6 @@ def cli(filename, cut_level, debug, output, layout):
     )
     hdu2.header.set('CREF3', '(MC_ENERG_LO:MC_ENERG_HI)', '')
 
-    run_header = {
-        k: [v]
-        for k, v in particle_file['MC_runheader'].all_members.items()
-           if k.find('@') != 0 and
-           k != 'fName' and
-           k != 'fTitle'
-    }
-
     run_header_hdu = fits.BinTableHDU(data=Table(run_header), name='RUNHEADER')
 
     logging.debug("Generating fits file.")
@@ -160,6 +194,7 @@ def cli(filename, cut_level, debug, output, layout):
     hdulist = fits.HDUList([primary_hdu, events_hdu, hdu2, run_header_hdu])
     logging.info(f'Writing to {output}')
     hdulist.writeto(output, overwrite=True)
+
 
 if __name__ == '__main__':
     cli()
