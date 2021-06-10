@@ -4,7 +4,7 @@ Example of use
 ----------
 
 ```shell
-python ./generate_DL2_file.py gamma_onSource.S.BL-4LSTs25MSTs70SSTs-MSTF_ID0.eff-0.root paranal
+python ./generate_DL2_file.py -l LAYOUT_NAME gamma_onSource.S.BL-4LSTs25MSTs70SSTs-MSTF_ID0.eff-0.root
 ```
 
 Format definition
@@ -53,44 +53,44 @@ Input format from Eventdisplay Effective Area files
 
 ## Event trees
 
-DL2 events trees are called 'data' and gamma/hadron cut statistics are listed in 'fEventTreeCuts' (both trees have the same number of events, so the TTree::AddFriend() mechanism can be used). Both trees contain entries for all trees after reconstruction.
+DL2 events trees are called 'DL2EventTree' and include gamma/hadron cut statistics. 
 
 
 ### Data trees
 
 Data tree variables (subset):
 
-- MCe0 - MC energy (in TeV)
-- MCxcore and MCycore - MC core position (in m)
-- MCxoff and MCyoff - true position (relative to camera centre; in deg)
-- ErecS - reconstructed energy (in TeV)
-- Xcore, YCore - reconstructed core position (in m)
-- Xoff and Yoff - reconstructed position (relative to camera centre; in deg)
-- NImages - number of images used for the reconstruction
+- MCe0: MC energy (in TeV)
+- MCaz, MCel: MC shower direction
+- MCxoff and MCyoff: true position (relative to camera centre; in deg)
+- ArrayPointing_Azimuth, ArrayPointing_Elevation: telescope pointing direction
+- erec: reconstructed energy (in TeV)
+- nimages: number of images used for the reconstruction
+- xoff and xoff: reconstructed position (relative to camera centre; in deg)
+- Class: cut class defining different type of events (see below)
+- MVA: BDT mva parameter
 
-### Gamma/hadron cut trees:
-
-The tree fEventTreeCuts can be used to select different type of events:
+The Class parameter can be used to select different type of events:
 
 1. Events passing gamma/hadron separation cut and direction cut
 
 ```
-fEventTreeCuts->Draw("MVA", "Class==5" );
+DL2EventTree->Draw("MVA", "Class==5" );
 ```
 
 2. Events passing gamma/hadron separation cut and not direction cut
 
 ```
-fEventTreeCuts->Draw("MVA", "Class==0" );
+DL2EventTree->Draw("MVA", "Class==0" );
 ```
 
 3. Events before applying gamma/hadron separation cut and before applying direction cut
 
 ```
-fEventTreeCuts->Draw("MVA", "Class==0||Class==7||Class==5", "");
+DL2EventTree->Draw("MVA", "Class==0||Class==7||Class==5", "");
 ```
 
-### Simulated events¶
+### Simulated events
 
 The simulated events vs energy are stored in a histogram in the file:
 
@@ -100,8 +100,22 @@ TH1D *h = (TH1D*)gDirectory->Get("hEmcUW");
 
 Events are not weighted while filling this histogram (in contrary to earlier versions)
 
- 
 Links
 -----
 
 CTA internal prod3b redmine page: https://forge.in2p3.fr/projects/cta_analysis-and-simulations/wiki/Eventdisplay_Prod3b_DL2_Lists
+(older version; needs to be updated)
+
+## Installation
+
+Install the required packages and activate conda environment:
+
+```
+conda env create -f environment.yml
+conda activate DL2
+```
+
+Update your environment:
+```
+conda env update -f environment.yml
+```
