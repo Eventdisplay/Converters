@@ -11,9 +11,32 @@ using namespace std;
 
 int main( int argc, char* argv[] )
 {
-    string fFitsFileName = "data/test.fits";
-    gSystem->Exec( "rm -v -f data/test.fits" );
-    string fRootFile = "./data/DESY.g20210610.V3.ID0NIM3LST3MST3SST4SCMST3.prod5-Paranal-20deg-sq10-LL.S-M6C5ax-14MSTs37SSTs-MSTF.180000s.root";
+    if( argc != 3 )
+    {
+        cout << argc << endl;
+        cout << endl;
+        cout << "./convertSensitivityFilesToFITS <input root file> <output FITS file>" << endl;
+        cout << endl;
+        cout << " converts IRFs in ROOT format to GADF FITS format" << endl;
+        cout << "     existing files are overwritten" << endl;
+        cout << " experimental stage - not for production!" << endl;
+        cout << endl;
+        exit( EXIT_SUCCESS );
+    }
+    cout << "Converting IRFs in ROOT to GADF FITS format" << endl;
+    cout << "-------------------------------------------" << endl;
+    cout << endl;
+
+    string fRootFile = argv[1];
+    string fFitsFileName = argv[2];
+
+    cout << "Reading root file from " << fRootFile << endl;
+    cout << "Writing FITS file to " << fFitsFileName << endl;
+    cout << endl;
+    ostringstream o_ss;
+    o_ss << "rm -f -v " << fFitsFileName;
+    gSystem->Exec( o_ss.str().c_str() );
+
     TFile *fData = new TFile( fRootFile.c_str() );
     if( fData->IsZombie() )
     {
