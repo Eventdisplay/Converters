@@ -1,0 +1,7 @@
+name: dl3irfs
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - cfitsio
+  - root

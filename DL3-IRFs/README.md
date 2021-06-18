@@ -4,6 +4,19 @@ see [GDAF website](https://gamma-astro-data-formats.readthedocs.io/en/latest/irf
 
 **this is for now a playground for Gernot to learn more about the format; don't expect lot's of progress and don't think this is for production**
 
+## Installation
+
+Requires ROOT and cfitsio installation, e.g. by:
+```
+conda env create -f environment.yml
+conda activate dl3irfs
+```
+
+Compilation:
+```
+make convertSensitivityFilesToFITS
+```
+
 ## Converting IRFs in ROOT to FITS
 
 ```
