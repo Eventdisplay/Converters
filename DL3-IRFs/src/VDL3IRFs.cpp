@@ -53,8 +53,26 @@ bool VDL3IRFs::write_fits_header()
    {
        return printerror( status );
    }
-   char telescope[] = "CTA";
+   char telescope[] = "CTA (MC prod5)";
    if( fits_update_key( fptr, TSTRING, ( char* )"TELESCOP", telescope, ( char* )"Telescope name", &status ) )
+   {
+       return printerror( status );
+   }
+   return true;
+}
+
+bool VDL3IRFs::write_fits_keyword( 
+                    char *key_name,
+                    char *key_value,
+                    char *key_comment )
+{
+   int status = 0;
+   if( fits_update_key( fptr, 
+                        TSTRING, 
+                        key_name, 
+                        key_value,
+                        key_comment,
+                        &status ) )
    {
        return printerror( status );
    }
@@ -64,67 +82,70 @@ bool VDL3IRFs::write_fits_header()
 bool VDL3IRFs::write_fits_table_header( string irftype )
 {
    cout << "write_fits_table_header " << irftype << endl;
-   int status = 0;
-   // GDAF
-   vector< string > hdu;
-   vector< string > hdu_text;
-   hdu_text.push_back( "HDUDOC" );
-   hdu.push_back( "https://github.com/open-gamma-ray-astro/gamma-astro-data-formats" );
-   hdu_text.push_back( "HDUVERS" );
-   hdu.push_back( "0.2" );
-   hdu_text.push_back( "HDUCLASS" );
-   hdu.push_back( "GADF" );
-   hdu_text.push_back( "HDUCLAS1" );
-   hdu.push_back( "RESPONSE" );
-   hdu_text.push_back( "HDUCLAS2" );
-   if( irftype == "PSF_3GAUSS" )
-   {
-       hdu.push_back( "PSF" );
-   }
-   else if( irftype == "BKG_2D" )
-   {
-       hdu.push_back( "BKG" );
-   }
-   else if( irftype == "AEFF_2D" )
-   {
-       hdu.push_back( "EFF_AREA" );
-   }
-   else if( irftype == "EDISP_2D" )
-   {
-       hdu.push_back( "EDISP" );
-   }
 
-   hdu_text.push_back( "HDUCLAS3" );
-   hdu.push_back( "FULL-ENCLOSURE" );
+   write_fits_keyword( (char*)"TELESCOP",
+                       (char*)"CTA",
+                       (char*)"Name of telescope" );
 
-   hdu_text.push_back( "HDUCLAS4" );
-   hdu.push_back( irftype );
-
+   // date string
    time_t now;
    time(&now);
    char buf[sizeof "2011-10-08T07:07:09"];
    strftime(buf, sizeof buf, "%FT%T", gmtime(&now));
-   hdu_text.push_back( "DATE" );
-   hdu.push_back( buf );
+   write_fits_keyword( (char*)"DATE",
+                       buf,
+                       (char*)"File creation date (YYYY-MM-DDThh:mm:ss UTC)" );
 
-   for( unsigned int i = 0; i < hdu.size(); i++ )
+
+   write_fits_keyword( (char*)"HDUDOC",
+                       (char*)"https://github.com/open-gamma-ray-astro/gamma-astro-data-formats",
+                       (char*)"" );
+
+   write_fits_keyword( (char*)"HDUVERS",
+                       (char*)"0.2",
+                       (char*)"HDU version" );
+
+   write_fits_keyword( (char*)"HDUCLASS",
+                       (char*)"GADF",
+                       (char*)"HDUCLASS" );
+
+   write_fits_keyword( (char*)"HDUCLAS1",
+                       (char*)"RESPONSE",
+                       (char*)"HDUCLAS1" );
+
+   if( irftype == "PSF_3GAUSS" )
    {
-       char t_temp[hdu[i].size()+1];
-       hdu[i].copy(t_temp, hdu[i].size() + 1);
-
-       char t_text[hdu_text[i].size()+1];
-       hdu_text[i].copy(t_text, hdu_text[i].size()+1);
-
-       if( fits_update_key( fptr, 
-                            TSTRING, 
-                            (char*)t_text, 
-                            t_temp,
-                            (char*)t_text, 
-                            &status ) )
-       {
-           return printerror( status );
-       }
+       write_fits_keyword( (char*)"HDUCLAS2",
+                           (char*)"PSF",
+                           (char*)"HDUCLAS1" );
    }
+   else if( irftype == "BKG_2D" )
+   {
+       write_fits_keyword( (char*)"HDUCLAS2",
+                           (char*)"BKG",
+                           (char*)"HDUCLAS1" );
+   }
+   else if( irftype == "AEFF_2D" )
+   {
+       write_fits_keyword( (char*)"HDUCLAS2",
+                           (char*)"EFF_AREA",
+                           (char*)"HDUCLAS1" );
+   }
+   else if( irftype == "EDISP_2D" )
+   {
+       write_fits_keyword( (char*)"HDUCLAS2",
+                           (char*)"EDISP",
+                           (char*)"HDUCLAS1" );
+   }
+
+   write_fits_keyword( (char*)"HDUCLAS3",
+                       (char*)"FULL-ENCLOSURE",
+                       (char*)"HDUCLAS3" );
+
+   write_fits_keyword( (char*)"HDUCLAS4",
+                       (char*)irftype.c_str(),
+                       (char*)"HDUCLAS4" );
+
    return true;
 }
 

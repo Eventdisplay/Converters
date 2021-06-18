@@ -25,6 +25,7 @@ class VDL3IRFs
     vector< vector< float > > get_baseline_axes( TH1 *h );
     void normalise_pdf( TH3F *h );
     bool printerror( int status );
+    bool write_fits_keyword( char*, char*, char* );
     bool write_fits_table_header( string irftype );
     bool write_table( vector< vector< float > > table );
     bool write_histo2D( TH2F *h, 
