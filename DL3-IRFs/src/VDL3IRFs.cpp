@@ -297,6 +297,111 @@ bool VDL3IRFs::write_edisp( TH3F *h )
 }
 
 /*
+    PSF table
+    https://gamma-astro-data-formats.readthedocs.io/en/latest/irfs/full_enclosure/psf/psf_table/index.html
+
+*/
+bool VDL3IRFs::write_psf_table( TH3F *h )
+{
+   if( !h ) return false;
+
+   int status = 0;
+   // make sure that PDfs are normalised
+   // (this is not guaranteed by Eventdisplay)
+   normalise_pdf( h );
+
+   const int nCol = 7;
+   long nRows = h->GetNbinsX() 
+              * h->GetNbinsZ() 
+              * h->GetNbinsY();
+   nRows = 0;
+   char* tType[nCol] = { (char*)"ENERG_LO",
+                      (char*)"ENERG_HI",
+                      (char*)"THETA_LO",
+                      (char*)"THETA_HI",
+                      (char*)"MIGRA_LO",
+                      (char*)"MIGRA_HI",
+                      (char*)"RPSF" };
+   char* tUnit[nCol] = { (char*)"TeV",
+                      (char*)"TeV",
+                      (char*)"deg",
+                      (char*)"deg",
+                      (char*)"deg",
+                      (char*)"deg",
+                      (char*)"sr^-1" };
+   // e_true axis is x-axis
+   char x_form[10];
+   sprintf( x_form, "%dE", h->GetNbinsX() );
+   // Offset angle from source position
+   char y_form[10];
+   sprintf( y_form, "%dE", h->GetNbinsY() );
+   // offset angle axis is z-axis
+   char z_form[10];
+   sprintf( z_form, "%dE", h->GetNbinsZ() );
+   // mig
+   char m_form[10];
+   sprintf( m_form, "%dE", h->GetNbinsX()
+                         * h->GetNbinsZ()
+                         * h->GetNbinsY() );
+   char* tForm[nCol] = { &x_form[0],
+                      &x_form[0],
+                      &y_form[0],
+                      &y_form[0],
+                      &z_form[0],
+                      &z_form[0],
+                      &m_form[0] };
+
+   ///////////////
+   // create empty table
+   if( fits_create_tbl( fptr, 
+                        BINARY_TBL, 
+                        nRows, 
+                        nCol, 
+                        tType, 
+                        tForm, 
+                        tUnit, 
+                        "POINT SPREAD FUNCTION",
+                        &status ) )
+   {
+       return printerror( status );
+   }
+   // set dimensions
+   long int naxes[] = { h->GetNbinsX(), 
+                        h->GetNbinsY(), 
+                        h->GetNbinsZ() };
+   if( fits_write_tdim( fptr,
+                        7,
+                        3,
+                        naxes,
+                        &status ) )
+   {
+      return printerror( status );
+   }
+   ///////////////
+   // write data 
+   vector< vector< float > > table = get_baseline_axes( h );
+
+   vector< float > data;
+   for( int k = 0; k < h->GetNbinsZ(); k++ )
+   {
+       for( int j = 0; j < h->GetNbinsY(); j++ )
+       {
+           for( int i = 0; i < h->GetNbinsX(); i++ )
+           {
+               data.push_back( h->GetBinContent( i+1, j+1, k+1 ) );
+           }
+       }
+   }
+   table.push_back( data );
+
+   bool writing_success = write_table( table );
+   write_fits_table_header( "PSF_TABLE" );
+
+   return true;
+}
+
+
+/*
  *  Multi-Gauss mixture model
  *  https://gamma-astro-data-formats.readthedocs.io/en/latest/irfs/full_enclosure/psf/psf_3gauss/index.html#
 */

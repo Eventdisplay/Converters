@@ -4,6 +4,16 @@ see [GDAF website](https://gamma-astro-data-formats.readthedocs.io/en/latest/irf
 
 **this is for now a playground for Gernot to learn more about the format; don't express lot's of progress and don't think this is for production**
 
+## Converting IRFs in ROOT to FITS
+
+```
+./convertSensitivityFilesToFITS
+```
+
+## Notebooks
+
+Some testing notebooks are in the notebook directory. Use `jupyter lab` to run them.
+
 ## Docker
 
 Docker images are used only for easier debugging.

@@ -35,6 +35,8 @@ int main( int argc, char* argv[] )
     cout << "Writing background PSF Gauss" << endl;
     a.write_psf_gauss( 
          (TH2F*)fData->Get( "AngResEtrue_offaxis" ) );
+    a.write_psf_table(
+         (TH3F*)fData->Get( "AngularPSF2DEtrue_offaxis" ) );
 
     // edisp
     // note: note using migration matrix MigMatrixNoTheta2cut_offaxis
