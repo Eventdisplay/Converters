@@ -48,13 +48,18 @@ bool VDL3IRFs::write_fits_header()
 {
    int status = 0;
 
-   char author[] = "Eventdisplay";
-   if( fits_update_key( fptr, TSTRING, ( char* )"CREATOR", author, ( char* )"Creator", &status ) )
+   char author[] = "G.Maier";
+   if( fits_update_key( fptr, TSTRING, ( char* )"AUTHOR", author, ( char* )"Author", &status ) )
    {
        return printerror( status );
    }
    char telescope[] = "CTA (MC prod5)";
    if( fits_update_key( fptr, TSTRING, ( char* )"TELESCOP", telescope, ( char* )"Telescope name", &status ) )
+   {
+       return printerror( status );
+   }
+   char instrument[] = "Southern Array";
+   if( fits_update_key( fptr, TSTRING, ( char* )"INSTRUME", instrument, ( char* )"Instrument", &status ) )
    {
        return printerror( status );
    }
@@ -87,15 +92,30 @@ bool VDL3IRFs::write_fits_table_header( string irftype )
                        (char*)"CTA",
                        (char*)"Name of telescope" );
 
-   // date string
-   time_t now;
-   time(&now);
-   char buf[sizeof "2011-10-08T07:07:09"];
-   strftime(buf, sizeof buf, "%FT%T", gmtime(&now));
-   write_fits_keyword( (char*)"DATE",
-                       buf,
-                       (char*)"File creation date (YYYY-MM-DDThh:mm:ss UTC)" );
+   write_fits_keyword( (char*)"INSTRUME",
+                       (char*)"Southern Array",
+                       (char*)"Instrument" );
 
+   write_fits_keyword( (char*)"AUTHOR",
+                       (char*)"G.Maier",
+                       (char*)"Author" );
+   write_fits_keyword( (char*)"ORIGIN",
+                       (char*)"DESY",
+                       (char*)"Origin" );
+
+   // date string
+   char datestr[FLEN_KEYWORD];
+   int timeref = 0;
+   int status = 0;
+   if( fits_get_system_time( datestr,
+                             &timeref,
+                             &status ) )
+   {
+       return printerror( status );
+   }
+   write_fits_keyword( (char*)"DATE",
+                       datestr,
+                       (char*)"File creation date (YYYY-MM-DDThh:mm:ss UTC)" );
 
    write_fits_keyword( (char*)"HDUDOC",
                        (char*)"https://github.com/open-gamma-ray-astro/gamma-astro-data-formats",
@@ -516,6 +536,184 @@ bool VDL3IRFs::write_psf_gauss( TH2F *h )
 }
 
 /*
+    normalisation factor from TeV to MeV conversion
+
+*/
+vector< float > VDL3IRFs::calculate_norm_mev_background( TH1 *h )
+{
+   if( !h ) 
+   {
+        vector< float > norm_mev_background;
+        return norm_mev_background;
+   }
+   vector< float > norm_mev_background( h->GetNbinsX(), 1. );
+   float dE = 1.;
+   for( unsigned int i = 0; i < norm_mev_background.size(); i++ )
+   {
+      norm_mev_background[i] /= TMath::DegToRad() * TMath::DegToRad();
+      // first two axes are E low and high
+      // TeV --> MeV
+      dE  = TMath::Power( 10., h->GetXaxis()->GetBinUpEdge( i+1 ) );
+      dE -= TMath::Power( 10., h->GetXaxis()->GetBinLowEdge( i+1 ) ); 
+      dE *= 1.e6;
+      norm_mev_background[i] /= dE;
+   }
+   return norm_mev_background;
+}
+
+// data
+
+/*
+ * background IRF
+ *
+ * expand 2D background IRF to 3D
+ *
+ * - https://github.com/open-gamma-ray-astro/gamma-astro-data-formats/issues/153
+ */
+bool VDL3IRFs::write_background_3D_from_2d( TH2F* h )
+{
+   int status = 0;
+
+   // oversampling multiplier
+   int oversample_mult = 5;
+
+   const int nCol = 7;
+   long nRows = h->GetNbinsX() 
+              * h->GetNbinsY() * oversample_mult
+              * h->GetNbinsY() * oversample_mult;;
+   nRows = 0;
+   char* tType[nCol] = { (char*)"ENERG_LO",
+                      (char*)"ENERG_HI",
+                      (char*)"DETX_LO",
+                      (char*)"DETX_HI",
+                      (char*)"DETY_LO",
+                      (char*)"DETY_HI",
+                      (char*)"BKG"};
+
+   char* tUnit[nCol] = { (char*)"TeV",
+                      (char*)"TeV",
+                      (char*)"deg",
+                      (char*)"deg",
+                      (char*)"deg",
+                      (char*)"deg",
+                      (char*)"s^-1 MeV^-1 sr^-1"};
+   // e_true axis is x-axis
+   char x_form[10];
+   sprintf( x_form, "%dE", h->GetNbinsX() );
+   // FOV coordinates (4x)
+   char y_form[10];
+   sprintf( y_form, "%dE", h->GetNbinsY() * oversample_mult );
+   //
+   char z_form[10];
+   sprintf( z_form, "%dE", h->GetNbinsX()
+                         * h->GetNbinsY() * oversample_mult
+                         * h->GetNbinsY() * oversample_mult);
+   char* tForm[nCol] = { &x_form[0],
+                      &x_form[0],
+                      &y_form[0],
+                      &y_form[0],
+                      &y_form[0],
+                      &y_form[0],
+                      &z_form[0] };
+   ///////////////
+   // create empty table
+   if( fits_create_tbl( fptr, 
+                        BINARY_TBL, 
+                        nRows, 
+                        nCol, 
+                        tType, 
+                        tForm, 
+                        tUnit, 
+                        "BACKGROUND",
+                        &status ) )
+   {
+       return printerror( status );
+   }
+   // set dimensions
+   long int naxes[] = { h->GetNbinsX(), 
+                        h->GetNbinsY() * oversample_mult, 
+                        h->GetNbinsY() * oversample_mult };
+   if( fits_write_tdim( fptr,
+                        7,
+                        3,
+                        naxes,
+                        &status ) )
+   {
+      return printerror( status );
+   } 
+
+   ///////////////
+   // write data 
+   vector< vector< float > > table;
+
+   // xaxis
+   // (always expected to be energy axis in log10)
+   vector< float > xedge_low;
+   vector< float > xedge_hig;
+   for( int i = 0; i < h->GetNbinsX(); i++ )
+   {
+       xedge_low.push_back( TMath::Power( 10.,
+                                         h->GetXaxis()->GetBinLowEdge( i+1 ) ) );
+       xedge_hig.push_back( TMath::Power( 10.,
+                                         h->GetXaxis()->GetBinUpEdge( i+1 ) ) );
+   }
+   table.push_back( xedge_low );
+   table.push_back( xedge_hig );
+   // FOV axis
+   vector< float > fov_low;
+   vector< float > fov_hig;
+   float d_xy = h->GetYaxis()->GetXmax() / (h->GetNbinsY() * oversample_mult);
+   for( int i = 0; i < h->GetNbinsY() * oversample_mult; i++ )
+   {
+       fov_low.push_back( i * d_xy );
+       fov_hig.push_back( (i+1) * d_xy );
+   }
+   table.push_back( fov_low );
+   table.push_back( fov_hig );
+   table.push_back( fov_low );
+   table.push_back( fov_hig );
+
+   vector< float > data;
+
+   vector< float > norm_mev_background = calculate_norm_mev_background( h );
+
+   float dr = 0.;
+   for( int k = 0; k < fov_low.size(); k++ )
+   {
+       for( int j = 0; j < fov_low.size(); j++ )
+       {
+           dr = sqrt( (fov_low[k]+0.5*d_xy)*(fov_low[k]+0.5*d_xy)
+                     +(fov_low[j]+0.5*d_xy)*(fov_low[j]+0.5*d_xy) );
+
+           for( int i = 0; i < h->GetNbinsX(); i++ )
+           {
+               if( dr < h->GetYaxis()->GetXmax() )
+               {
+                   data.push_back( 
+                        h->Interpolate(
+                            h->GetXaxis()->GetBinCenter( i+1 ),
+                            dr ) );
+               }
+               else
+               {
+                   data.push_back( 0. );
+               }
+               if( i < norm_mev_background.size() )
+               {
+                   data.back() *= norm_mev_background[i]; 
+               }
+           }
+       }
+   }
+   table.push_back( data );
+
+   bool writing_success = write_table( table );
+
+   write_fits_table_header( "BKG_3D" );
+   return writing_success;
+}
+
+/*
  * background IRF
  * - https://github.com/open-gamma-ray-astro/gamma-astro-data-formats/issues/153
  */
@@ -611,21 +809,7 @@ bool VDL3IRFs::write_histo2D( TH2F *h,
    vector< float > norm_mev_background( h->GetNbinsX(), 1. );
    if( MEV_BACKGROUND_UNIT )
    {
-      float dE = 1.;
-      for( unsigned int i = 0; i < norm_mev_background.size(); i++ )
-      {
-          norm_mev_background[i] /= TMath::DegToRad() * TMath::DegToRad();
-          // first two axes are E low and high
-          // TeV --> MeV
-          if( table.size() > 1 
-          && i < table[0].size() 
-          && i < table[1].size() )
-          {
-             dE = table[1][i] - table[0][i];
-             dE *= 1.e6;
-             norm_mev_background[i] /= dE;
-          }
-      }
+      norm_mev_background = calculate_norm_mev_background( h );
    }
 
    // data

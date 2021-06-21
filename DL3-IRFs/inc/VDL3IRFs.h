@@ -2,7 +2,6 @@
  * (includes sensitivity IRFS)
 */
 
-#include <ctime>
 #include <iostream>
 #include <sstream>
 #include <string>
@@ -23,6 +22,7 @@ class VDL3IRFs
     fitsfile* fptr;
 
     vector< vector< float > > get_baseline_axes( TH1 *h );
+    vector< float > calculate_norm_mev_background( TH1 *h );
     void normalise_pdf( TH3F *h );
     bool printerror( int status );
     bool write_fits_keyword( char*, char*, char* );
@@ -42,6 +42,7 @@ class VDL3IRFs
     bool open_fits_file( string fits_file_name );
     bool write_fits_header();
     bool write_background( TH2F *h );
+    bool write_background_3D_from_2d( TH2F *h );
     bool write_effarea( TH2F *h );
     bool write_edisp( TH3F *h );
     bool write_psf_gauss( TH2F *h );

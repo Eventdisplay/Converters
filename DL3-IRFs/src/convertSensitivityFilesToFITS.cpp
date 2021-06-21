@@ -11,15 +11,19 @@ using namespace std;
 
 int main( int argc, char* argv[] )
 {
-    if( argc != 3 )
+    if( argc != 4 )
     {
         cout << argc << endl;
         cout << endl;
-        cout << "./convertSensitivityFilesToFITS <input root file> <output FITS file>" << endl;
+        cout << "./convertSensitivityFilesToFITS <input root file (.root)> ";
+        cout << "<output FITS file (.fits/.fits.gz)> ";
+        cout << " <2D/3D>" << endl;
         cout << endl;
         cout << " converts IRFs in ROOT format to GADF FITS format" << endl;
         cout << "     existing files are overwritten" << endl;
         cout << " experimental stage - not for production!" << endl;
+        cout << endl;
+        cout << "\t <2D/3D> 3D: extrapolate 2D histograms to 3D" << endl;
         cout << endl;
         exit( EXIT_SUCCESS );
     }
@@ -29,6 +33,7 @@ int main( int argc, char* argv[] )
 
     string fRootFile = argv[1];
     string fFitsFileName = argv[2];
+    string f2D3D = argv[3];
 
     cout << "Reading root file from " << fRootFile << endl;
     cout << "Writing FITS file to " << fFitsFileName << endl;
@@ -70,8 +75,16 @@ int main( int argc, char* argv[] )
 
     // background rates
     cout << "Writing background IRFs" << endl;
-    a.write_background( 
-         (TH2F*)fData->Get( "BGRatePerSqDeg_offaxis" ) );
+    if( f2D3D == "2D" )
+    {
+        a.write_background( 
+             (TH2F*)fData->Get( "BGRatePerSqDeg_offaxis" ) );
+    }
+    else
+    {
+        a.write_background_3D_from_2d(
+             (TH2F*)fData->Get( "BGRatePerSqDeg_offaxis" ) );
+    }
 
     a.write_fits_file();
 

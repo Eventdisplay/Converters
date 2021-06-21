@@ -20,12 +20,13 @@ make convertSensitivityFilesToFITS
 ## Converting IRFs in ROOT to FITS
 
 ```
-./convertSensitivityFilesToFITS
+./convertSensitivityFilesToFITS <file.root> <file.fits.gz> 3D
 ```
 
 ## Notebooks
 
 Some testing notebooks are in the notebook directory. Use `jupyter lab` to run them.
+Test IRFs can be found on https://forge.in2p3.fr/projects/cta-s-optimization/wiki
 
 ## Docker
 
