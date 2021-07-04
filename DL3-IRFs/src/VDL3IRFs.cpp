@@ -50,7 +50,9 @@ bool VDL3IRFs::write_fits_file()
    write FITS header with 
    basic information
 */
-bool VDL3IRFs::write_fits_header( char *instrument )
+bool VDL3IRFs::write_fits_header( 
+             char *telescope,
+             char *instrument )
 {
    int status = 0;
    cout << "Instrument: " << instrument << endl;
@@ -64,7 +66,6 @@ bool VDL3IRFs::write_fits_header( char *instrument )
    {
        return printerror( status );
    }
-   char telescope[] = "CTA (MC prod5)";
    if( fits_update_key( fptr, TSTRING, 
                         (char*)"TELESCOP", 
                         telescope, 

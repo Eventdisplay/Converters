@@ -17,7 +17,8 @@ char* getArrayName( TFile *fData )
     if( !fData ) return (char*)"Unknown";
 
     string file_name = fData->GetName();
-    if( file_name.find( "Paranal" ) != string::npos )
+    if( file_name.find( "Paranal" ) != string::npos
+       || file_name.find( "South" ) != string::npos )
     {
         return (char*)"CTAO Southern Array";
     }
@@ -71,6 +72,7 @@ int main( int argc, char* argv[] )
     }
 
     a.write_fits_header( 
+             (char*)"CTA (MC prod5, v0.1)",
              (char*)getArrayName(fData) );
 
     // effective area

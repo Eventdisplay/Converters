@@ -41,7 +41,7 @@ class VDL3IRFs
    ~VDL3IRFs() {}
 
     bool open_fits_file( string fits_file_name );
-    bool write_fits_header( char* );
+    bool write_fits_header( char*, char* );
     bool write_background( TH2F *h );
     bool write_background_3D_from_2d( TH2F *h );
     bool write_effarea( TH2F *h );
