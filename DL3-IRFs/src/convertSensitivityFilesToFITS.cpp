@@ -13,7 +13,6 @@ int main( int argc, char* argv[] )
 {
     if( argc != 4 )
     {
-        cout << argc << endl;
         cout << endl;
         cout << "./convertSensitivityFilesToFITS <input root file (.root)> ";
         cout << "<output FITS file (.fits/.fits.gz)> ";
