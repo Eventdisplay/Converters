@@ -20,7 +20,6 @@ int main( int argc, char* argv[] )
         cout << endl;
         cout << " converts IRFs in ROOT format to GADF FITS format" << endl;
         cout << "     existing files are overwritten" << endl;
-        cout << " experimental stage - not for production!" << endl;
         cout << endl;
         cout << "\t <2D/3D> 3D: extrapolate 2D histograms to 3D" << endl;
         cout << endl;
