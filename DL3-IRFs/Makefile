@@ -24,4 +24,4 @@ convertSensitivityFilesToFITS:	$(CONVERTFITS)
 	$(CXX) $(CXXFLAGS) -c -o $@ $<
 
 clean:
-	-rm -f ./obj/*.o
+	rm -f ./obj/*.o
