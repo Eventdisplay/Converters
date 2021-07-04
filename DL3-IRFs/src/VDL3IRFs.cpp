@@ -18,7 +18,9 @@ bool VDL3IRFs::printerror( int status )
     return false;
 }
 
-
+/*
+ *  create a new fits file
+ */
 bool VDL3IRFs::open_fits_file( string fits_file_name )
 {
     int status = 0;
@@ -44,22 +46,38 @@ bool VDL3IRFs::write_fits_file()
     return true;
 }
 
-bool VDL3IRFs::write_fits_header()
+/*
+   write FITS header with 
+   basic information
+*/
+bool VDL3IRFs::write_fits_header( char *instrument )
 {
    int status = 0;
+   cout << "Instrument: " << instrument << endl;
 
    char author[] = "G.Maier";
-   if( fits_update_key( fptr, TSTRING, ( char* )"AUTHOR", author, ( char* )"Author", &status ) )
+   if( fits_update_key( fptr, TSTRING, 
+                        (char*)"AUTHOR", 
+                        author, 
+                        (char*)"Author", 
+                        &status ) )
    {
        return printerror( status );
    }
    char telescope[] = "CTA (MC prod5)";
-   if( fits_update_key( fptr, TSTRING, ( char* )"TELESCOP", telescope, ( char* )"Telescope name", &status ) )
+   if( fits_update_key( fptr, TSTRING, 
+                        (char*)"TELESCOP", 
+                        telescope, 
+                        (char*)"Telescope name", 
+                        &status ) )
    {
        return printerror( status );
    }
-   char instrument[] = "Southern Array";
-   if( fits_update_key( fptr, TSTRING, ( char* )"INSTRUME", instrument, ( char* )"Instrument", &status ) )
+   if( fits_update_key( fptr, TSTRING, 
+                        (char*)"INSTRUME", 
+                        instrument, 
+                        (char*)"Instrument", 
+                        &status ) )
    {
        return printerror( status );
    }
@@ -100,7 +118,7 @@ bool VDL3IRFs::write_fits_table_header( string irftype )
                        (char*)"G.Maier",
                        (char*)"Author" );
    write_fits_keyword( (char*)"ORIGIN",
-                       (char*)"DESY",
+                       (char*)"CTAO",
                        (char*)"Origin" );
 
    // date string
@@ -220,7 +238,7 @@ bool VDL3IRFs::write_edisp( TH3F *h )
 {
    if( !h ) return false;
 
-   // make sure that PDfs are normalised
+   // make sure that PDFs are normalised
    // (this is not guaranteed by Eventdisplay)
    normalise_pdf( h );
 
@@ -743,6 +761,9 @@ bool VDL3IRFs::write_effarea( TH2F *h )
    return writing_success;
 }
 
+/*
+   write a 2D histogram to FITS
+*/
 bool VDL3IRFs::write_histo2D( TH2F *h,
                                string name,
                                char* col_name,

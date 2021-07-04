@@ -9,6 +9,23 @@
 
 using namespace std;
 
+/*
+   try and guess the array name
+*/
+char* getArrayName( TFile *fData )
+{
+    if( !fData ) return (char*)"Unknown";
+
+    string file_name = fData->GetName();
+    if( file_name.find( "Paranal" ) != string::npos )
+    {
+        return (char*)"CTAO Southern Array";
+    }
+
+    return (char*)"CTAO Northern Array";
+}
+
+
 int main( int argc, char* argv[] )
 {
     if( argc != 4 )
@@ -48,9 +65,13 @@ int main( int argc, char* argv[] )
     }
 
     VDL3IRFs a;
-    a.open_fits_file( fFitsFileName );
+    if( !a.open_fits_file( fFitsFileName ) )
+    {
+        exit( EXIT_FAILURE );
+    }
 
-    a.write_fits_header();
+    a.write_fits_header( 
+             (char*)getArrayName(fData) );
 
     // effective area
     cout << "Writing effective area" << endl;
@@ -58,11 +79,15 @@ int main( int argc, char* argv[] )
          (TH2F*)fData->Get( "EffectiveAreaEtrueNoTheta2cut_offaxis" ) );
 
     // psf
-    cout << "Writing background PSF Gauss" << endl;
+    cout << "Writing gamma-ray point-spread function (Gaussian approximation)" << endl;
     a.write_psf_gauss( 
          (TH2F*)fData->Get( "AngResEtrue_offaxis" ) );
-    /*a.write_psf_table(
-         (TH3F*)fData->Get( "AngularPSF2DEtrue_offaxis" ) ); */
+
+    /*
+    cout << "Writing gamma-ray point-spread function (3D table)" << endl;
+    a.write_psf_table(
+         (TH3F*)fData->Get( "AngularPSF2DEtrue_offaxis" ) ); 
+    */
 
     // edisp
     // note: note using migration matrix MigMatrixNoTheta2cut_offaxis
