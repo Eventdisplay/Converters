@@ -39,7 +39,7 @@ int main( int argc, char* argv[] )
         cout << " converts IRFs in ROOT format to GADF FITS format" << endl;
         cout << "     existing files are overwritten" << endl;
         cout << endl;
-        cout << "\t <2D/3D> 3D: extrapolate 2D histograms to 3D" << endl;
+        cout << "\t <2D/3D> 3D: extrapolate 2D histograms to 3D (default)" << endl;
         cout << endl;
         exit( EXIT_SUCCESS );
     }

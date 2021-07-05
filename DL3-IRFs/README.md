@@ -20,6 +20,7 @@ make convertSensitivityFilesToFITS
 ```
 ./convertSensitivityFilesToFITS <file.root> <file.fits.gz> 3D
 ```
+(3D option is the default)
 
 ## Notebooks
 
