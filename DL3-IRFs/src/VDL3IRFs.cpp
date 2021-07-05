@@ -621,12 +621,12 @@ bool VDL3IRFs::write_background_3D_from_2d( TH2F* h )
    sprintf( x_form, "%dE", h->GetNbinsX() );
    // FOV coordinates (4x)
    char y_form[10];
-   sprintf( y_form, "%dE", h->GetNbinsY() * oversample_mult );
+   sprintf( y_form, "%dE", h->GetNbinsY() * oversample_mult * 2 );
    //
    char z_form[10];
    sprintf( z_form, "%dE", h->GetNbinsX()
-                         * h->GetNbinsY() * oversample_mult
-                         * h->GetNbinsY() * oversample_mult);
+                         * h->GetNbinsY() * oversample_mult * 2
+                         * h->GetNbinsY() * oversample_mult * 2);
    char* tForm[nCol] = { &x_form[0],
                       &x_form[0],
                       &y_form[0],
@@ -650,8 +650,8 @@ bool VDL3IRFs::write_background_3D_from_2d( TH2F* h )
    }
    // set dimensions
    long int naxes[] = { h->GetNbinsX(), 
-                        h->GetNbinsY() * oversample_mult, 
-                        h->GetNbinsY() * oversample_mult };
+                        h->GetNbinsY() * oversample_mult * 2, 
+                        h->GetNbinsY() * oversample_mult * 2 };
    if( fits_write_tdim( fptr,
                         7,
                         3,
@@ -682,10 +682,11 @@ bool VDL3IRFs::write_background_3D_from_2d( TH2F* h )
    vector< float > fov_low;
    vector< float > fov_hig;
    float d_xy = h->GetYaxis()->GetXmax() / (h->GetNbinsY() * oversample_mult);
-   for( int i = 0; i < h->GetNbinsY() * oversample_mult; i++ )
+   float y_min = -1.*h->GetYaxis()->GetXmax();
+   for( int i = 0; i < 2.*h->GetNbinsY() * oversample_mult; i++ )
    {
-       fov_low.push_back( i * d_xy );
-       fov_hig.push_back( (i+1) * d_xy );
+       fov_low.push_back( y_min + i * d_xy );
+       fov_hig.push_back( y_min + (i+1) * d_xy );
    }
    table.push_back( fov_low );
    table.push_back( fov_hig );
