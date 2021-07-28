@@ -156,25 +156,25 @@ bool VDL3IRFs::write_fits_table_header( string irftype )
    {
        write_fits_keyword( (char*)"HDUCLAS2",
                            (char*)"PSF",
-                           (char*)"HDUCLAS1" );
+                           (char*)"HDUCLAS2" );
    }
    else if( irftype == "BKG_2D" )
    {
        write_fits_keyword( (char*)"HDUCLAS2",
                            (char*)"BKG",
-                           (char*)"HDUCLAS1" );
+                           (char*)"HDUCLAS2" );
    }
    else if( irftype == "AEFF_2D" )
    {
        write_fits_keyword( (char*)"HDUCLAS2",
                            (char*)"EFF_AREA",
-                           (char*)"HDUCLAS1" );
+                           (char*)"HDUCLAS2" );
    }
    else if( irftype == "EDISP_2D" )
    {
        write_fits_keyword( (char*)"HDUCLAS2",
                            (char*)"EDISP",
-                           (char*)"HDUCLAS1" );
+                           (char*)"HDUCLAS2" );
    }
 
    write_fits_keyword( (char*)"HDUCLAS3",
@@ -184,6 +184,13 @@ bool VDL3IRFs::write_fits_table_header( string irftype )
    write_fits_keyword( (char*)"HDUCLAS4",
                        (char*)irftype.c_str(),
                        (char*)"HDUCLAS4" );
+
+   if( irftype.find( "BKG" ) != string::npos )
+   {
+       write_fits_keyword( (char*)"FOVALIGN",
+                           (char*)"ALTAZ",
+                           (char*)"FOV alignment" );
+   }
 
    return true;
 }
