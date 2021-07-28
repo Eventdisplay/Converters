@@ -22,6 +22,11 @@ make convertSensitivityFilesToFITS
 ```
 (3D option is the default)
 
+To test the converted FITS file, do:
+```
+python src/test_cta_file.py <file.fits.gz>
+```
+
 ## Notebooks
 
 Some testing notebooks are in the notebook directory. Use `jupyter lab` to run them.

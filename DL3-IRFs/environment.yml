@@ -4,4 +4,7 @@ channels:
   - defaults
 dependencies:
   - cfitsio
+  - pip
   - root
+  - pip:
+    - ogadf-schema
