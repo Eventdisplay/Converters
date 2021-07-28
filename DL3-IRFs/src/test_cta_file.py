@@ -1,6 +1,7 @@
 # Test program for OGADF scheme using ogadf_schema
 """
    usage:  python src/test_cta_file.py <file.fits.gz>
+           (only 3D implemented at this point)
 """
 from ogadf_schema.irfs import AEFF_2D, EDISP_2D, RAD_MAX
 from ogadf_schema.irfs import PSF_TABLE, PSF_3GAUSS, PSF_KING
