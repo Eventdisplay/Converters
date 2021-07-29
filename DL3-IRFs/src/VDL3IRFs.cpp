@@ -158,7 +158,7 @@ bool VDL3IRFs::write_fits_table_header( string irftype )
                            (char*)"PSF",
                            (char*)"HDUCLAS2" );
    }
-   else if( irftype == "BKG_2D" )
+   else if( irftype.find( "BKG" ) != string::npos )
    {
        write_fits_keyword( (char*)"HDUCLAS2",
                            (char*)"BKG",
