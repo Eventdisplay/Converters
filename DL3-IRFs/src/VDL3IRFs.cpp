@@ -188,7 +188,8 @@ bool VDL3IRFs::write_fits_table_header( string irftype )
    if( irftype.find( "BKG" ) != string::npos )
    {
        write_fits_keyword( (char*)"FOVALIGN",
-                           (char*)"ALTAZ",
+//                           (char*)"ALTAZ",
+                           (char*)"RADEC",
                            (char*)"FOV alignment" );
    }
 
