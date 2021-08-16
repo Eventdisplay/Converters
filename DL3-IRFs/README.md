@@ -29,7 +29,7 @@ python src/test_cta_file.py <file.fits.gz>
 
 ## Notebooks
 
-Some testing notebooks are in the notebook directory. Use `jupyter lab` to run them.
+Some testing notebooks are in the notebook directory. Use `jupyter lab` to run them in a gammapy environment.
 Test IRFs can be found on https://forge.in2p3.fr/projects/cta-s-optimization/wiki
 
 ## Docker
