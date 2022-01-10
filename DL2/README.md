@@ -9,7 +9,7 @@ python ./generate_DL2_file.py -l LAYOUT_NAME gamma_onSource.S.BL-4LSTs25MSTs70SS
 
 Format definition
 -------------
-Note the DL2 format used is based on the open DL3 specifications from:
+Note the DL2 format used is based on the open specifications from:
 
 https://github.com/open-gamma-ray-astro/gamma-astro-data-formats
 
@@ -111,7 +111,7 @@ CTA internal prod3b redmine page: https://forge.in2p3.fr/projects/cta_analysis-a
 Install the required packages and activate conda environment:
 
 ```
-conda env create -f environment.yml
+mamba env create -f environment.yml
 conda activate DL2
 ```
 

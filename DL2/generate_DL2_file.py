@@ -1,11 +1,19 @@
 # Script to convert Eventdisplay DL2a output to FITS
+# following the open data formats for gamma-ray
+# astronomy
+# (https://gamma-astro-data-formats.readthedocs.io/en/latest/)
 #
-# - expected Eventdisplay output including gamma/hadron cuts
+# - expect Eventdisplay output including gamma/hadron cuts
 #
-#  Script by T.Hassan
+#  Script started by T.Hassan
 #
+from astropy import units as u
+from astropy.io import fits
+from astropy.table import Table
 import click
 import logging
+import numpy as np
+import uproot4
 
 CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
 cuts_info = '''Cut level of the events to be included.
@@ -33,49 +41,43 @@ HDUVERS = '0.2'
 @click.option('-t', '--event_type', nargs=1, type=click.INT, default=-1,
               help='Event type (in case they were computed)')
 def cli(filename, cut_level, debug, output, layout, event_type):
-    """Command line tool for converting Eventdisplay root files to DL2 fits files"""
-    import numpy as np
+    """Convert Eventdisplay root files to DL2 fits files"""
 
     if output is None:
         click.secho("No output file specified.", fg='yellow')
-        click.secho("We will use the same filename, changing the extension to fits.", fg='yellow')
+        click.secho("Output file name will match input name (fits extension)",
+                    fg='yellow')
         if event_type > 0:
-            output = filename.replace(".root", "_event_type_{}.fits.gz".format(event_type))
+            output = filename.replace(".root",
+                                      "_event_type_{}.fits.gz"
+                                      .format(event_type))
         else:
             output = filename.replace(".root", ".fits.gz")
 
     # If event_type is larger than 0, extract event-wise event types:
     event_types = None
     if event_type > 0:
-        event_types = np.loadtxt(filename.replace(".root", ".txt"), dtype=np.float)
+        event_types = np.loadtxt(filename.replace(".root", ".txt"),
+                                 dtype=np.float)
         event_types = event_types.astype(int)
     if debug:
         logging.basicConfig(level=logging.DEBUG)
     else:
         logging.basicConfig(level=logging.INFO)
 
-    logging.debug("Importing dependencies.")
-    import uproot4
-    from astropy import units as u
-    from astropy.io import fits
-    from astropy.table import Table
-    import numpy as np
-
     logging.debug("Opening Eventdisplay ROOT file and extracting content.")
     logging.info(f'Reading from {filename}')
     particle_file = uproot4.open(filename)
-    # bin_content, bin_edges = particle_file['hEmcUW'].to_numpy()
     bin_content, bin_edges = particle_file['hEmcUW'].to_numpy(flow=True)
-    # As the under and overflow bin edges are -/+ inf, let's grab the minimum and maximum energy from the
-    # MC run headers:
+    # get min/max energy from MC run header
+    # (as the under and overflow bin edges are -/+ inf)
     run_header = {
         k: [v]
         for k, v in particle_file['MC_runheader'].all_members.items()
         if k.find('@') != 0 and
-           k != 'fName' and
-           k != 'fTitle'
+        k != 'fName' and
+        k != 'fTitle'
     }
-
     bin_edges[0] = np.log10(run_header["E_range"][0][0])
     bin_edges[-1] = np.log10(run_header["E_range"][0][1])
 
@@ -106,7 +108,7 @@ def cli(filename, cut_level, debug, output, layout, event_type):
         logging.info(f'Number of events within event_type file: {len(event_types)}')
         logging.info(f'Ratio of training to simulated events: {np.sum(event_types == -1)/len(event_types)}')
         logging.info(f'len(data_mask): {len(data_mask)}')
-        data_mask[data_mask == True] = event_types == event_type
+        data_mask[data_mask is True] = event_types == event_type
         if np.sum(data_mask) == 0:
             raise ValueError("No events to export of event types == {}".format(event_type))
         logging.info(f'Surviving events: {np.count_nonzero(data_mask)} (event type {event_type})')
@@ -141,7 +143,7 @@ def cli(filename, cut_level, debug, output, layout, event_type):
 
     # fake event numbers
     events['EVENT_ID'] = np.arange(len(events['MC_AZ']))
-    events['OBS_ID'] = particle_file['data/runNumber'].array(library='np')[data_mask]
+    events['OBS_ID'] = particle_file['DL2EventTree/runNumber'].array(library='np')[data_mask]
     logging.debug("Creating HDUs to be contained within the fits file.")
 
     # Create primary HDU:
@@ -154,10 +156,10 @@ def cli(filename, cut_level, debug, output, layout, event_type):
     header = fits.Header()
     header['HDUCLASS'] = HDUCLASS, 'This FITS file follows the GADF data format'
     header['HDUDOC'] = HDUDOC
-    header['HDUVERS'] =  HDUVERS, 'Specification version'
+    header['HDUVERS'] = HDUVERS, 'Specification version'
     header['HDUCLAS1'] = 'EVENTS', 'Primary extension class'
     header['TELESCOP'] = layout
-    header['CREATOR'] = 'Eventdisplay prod5-sq10'
+    header['CREATOR'] = 'Eventdisplay prod5'
     header['ORIGIN'] = 'CTA', 'Data generated by G.Maier'
     header['EUNIT'] = 'TeV', 'energy unit'
     header['ALTITUDE'] = site_altitude, 'Altitude of array center [m]'
