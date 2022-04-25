@@ -24,6 +24,6 @@ ENV LD_LIBRARY_PATH "${DATA}/lib:${LD_LIBRARY_PATH}"
 
 # Install and compile DL3 converter
 RUN git clone https://github.com/Eventdisplay/Converters.git && \
-    cd Converters && git checkout docker_production && \
+    cd Converters && \
     cd DL3-IRFs && \
     make convertSensitivityFilesToFITS
