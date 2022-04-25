@@ -1,10 +1,11 @@
+# conda env create -f environment.yml
+# conda activate dl3irfs
+
 name: dl3irfs
 channels:
   - conda-forge
   - defaults
 dependencies:
-  - cfitsio
   - pip
-  - root
   - pip:
     - ogadf-schema
