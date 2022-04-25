@@ -1,5 +1,7 @@
 # Converters
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.6482964.svg)](https://doi.org/10.5281/zenodo.6482964)
+
 Repository for Converters from Eventdisplay format (ROOT-based) into FITS / HDF5 / etc.
 This allows to use data products in proprietary format (e.g., from CTA or VERITAS) to be used with public science tools like gammapy.
 
