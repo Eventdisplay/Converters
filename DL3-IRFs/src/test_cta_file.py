@@ -17,6 +17,8 @@ handler = logging.StreamHandler()
 handler.setFormatter(logging.Formatter('%(levelname)s| %(message)s'))
 logging.getLogger().addHandler(handler)
 
+print('Testing', sys.argv[1])
+
 f = fits.open(sys.argv[1])
 print(*[repr(hdu.header['EXTNAME']) for hdu in f[1:]])
 
