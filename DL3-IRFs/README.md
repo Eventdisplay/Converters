@@ -1,16 +1,20 @@
-# IRF conversion to GDAF format
+# IRF conversion from CTAO-ROOT to FITS-GDAF format
 
-see [GDAF website](https://gamma-astro-data-formats.readthedocs.io/en/latest/irfs/irf_components/index.html#point-spread-function) for format details.
+see [GDAF website](https://gamma-astro-data-formats.readthedocs.io/en/latest/irfs/irf_components/index.html#point-spread-function) for details on the data model.
 
 ## Installation
 
-Preferred installation is using docker:
+Preferred installation is using docker.
+
+Using a prepared docker image to be downloaded from ghcr.io/eventdisplay/converters/dl3-irfs .
+
+Built the docker image on your own:
 
 ```
 $ docker build -t dl3-irfs .
 ```
 
-Otherwise all what is needed is a ROOT and cfitsio installation, and then compile it with:
+Without docker, all what is needed is a [ROOT](https://root.cern.ch/) and [cfitsio](https://heasarc.gsfc.nasa.gov/fitsio/) installation, and then compile it with:
 ```
 make convertSensitivityFilesToFITS
 ```
