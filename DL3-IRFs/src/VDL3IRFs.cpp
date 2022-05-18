@@ -5,7 +5,6 @@ VDL3IRFs::VDL3IRFs()
     fptr = 0;
 }
 
-
 /*
  * fits error reporting
 */
@@ -441,12 +440,11 @@ bool VDL3IRFs::write_psf_table( TH3F *h )
    }
    table.push_back( data );
 
-   bool writing_success = write_table( table );
+   write_table( table );
    write_fits_table_header( "PSF_TABLE" );
 
    return true;
 }
-
 
 /*
  *  Multi-Gauss mixture model
@@ -868,7 +866,6 @@ bool VDL3IRFs::write_histo2D( TH2F *h,
    return write_table( table );
 }
 
-
 bool VDL3IRFs::write_table( vector< vector< float > > table )
 {
    int status = 0;
@@ -941,4 +938,3 @@ vector<vector<float>> VDL3IRFs::get_baseline_axes( TH1 *h )
 
    return table;
 }
-
