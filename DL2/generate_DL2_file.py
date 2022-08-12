@@ -108,7 +108,7 @@ def cli(filename, cut_level, debug, output, layout, event_type):
         logging.info(f'Number of events within event_type file: {len(event_types)}')
         logging.info(f'Ratio of training to simulated events: {np.sum(event_types == -1)/len(event_types)}')
         logging.info(f'len(data_mask): {len(data_mask)}')
-        data_mask[data_mask is True] = event_types == event_type
+        data_mask[data_mask] = event_types == event_type
         if np.sum(data_mask) == 0:
             raise ValueError("No events to export of event types == {}".format(event_type))
         logging.info(f'Surviving events: {np.count_nonzero(data_mask)} (event type {event_type})')
