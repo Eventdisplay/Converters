@@ -13,7 +13,7 @@ from astropy.table import Table
 import click
 import logging
 import numpy as np
-import uproot4
+import uproot
 
 CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
 cuts_info = '''Cut level of the events to be included.
@@ -29,7 +29,7 @@ HDUVERS = '0.2'
 
 
 @click.command(context_settings=CONTEXT_SETTINGS)
-@click.argument('filename', type=click.Path(exists=True, dir_okay=False))
+@click.argument('filenames', type=click.Path(exists=True, dir_okay=False), nargs=-1)
 @click.option(
     '-c', '--cut-level',
     default=2, type=click.IntRange(min=0, max=2),
@@ -40,7 +40,7 @@ HDUVERS = '0.2'
 @click.option('-l', '--layout', default='CTA-layout', help='layout name')
 @click.option('-t', '--event_type', nargs=1, type=click.INT, default=-1,
               help='Event type (in case they were computed)')
-def cli(filename, cut_level, debug, output, layout, event_type):
+def cli(filenames, cut_level, debug, output, layout, event_type):
     """Convert Eventdisplay root files to DL2 fits files"""
 
     if output is None:
@@ -48,17 +48,17 @@ def cli(filename, cut_level, debug, output, layout, event_type):
         click.secho("Output file name will match input name (fits extension)",
                     fg='yellow')
         if event_type > 0:
-            output = filename.replace(".root",
-                                      "_event_type_{}.fits.gz"
-                                      .format(event_type))
+            output = filenames[0].replace(".eff-0.root",
+                                          "_event_type_{}.fits.gz"
+                                          .format(event_type))
         else:
-            output = filename.replace(".root", ".fits.gz")
+            output = filenames[0].replace(".eff-0.root", ".fits.gz")
 
     # If event_type is larger than 0, extract event-wise event types:
     event_types = None
     if event_type > 0:
-        event_types = np.loadtxt(filename.replace(".root", ".txt"),
-                                 dtype=np.float)
+        event_types = np.loadtxt(filenames[0].replace(".eff-0.root", ".txt"),
+                                 dtype=float)
         event_types = event_types.astype(int)
     if debug:
         logging.basicConfig(level=logging.DEBUG)
@@ -66,24 +66,25 @@ def cli(filename, cut_level, debug, output, layout, event_type):
         logging.basicConfig(level=logging.INFO)
 
     logging.debug("Opening Eventdisplay ROOT file and extracting content.")
-    logging.info(f'Reading from {filename}')
-    particle_file = uproot4.open(filename)
+    logging.info(f'Reading from {filenames}')
+    particle_file = uproot.open(filenames[0])
     bin_content, bin_edges = particle_file['hEmcUW'].to_numpy(flow=True)
     # get min/max energy from MC run header
     # (as the under and overflow bin edges are -/+ inf)
     run_header = {
         k: [v]
         for k, v in particle_file['MC_runheader'].all_members.items()
-        if k.find('@') != 0 and
-        k != 'fName' and
-        k != 'fTitle'
+        if k.find('@') != 0 and k != 'fName' and k != 'fTitle'
     }
     bin_edges[0] = np.log10(run_header["E_range"][0][0])
     bin_edges[-1] = np.log10(run_header["E_range"][0][1])
 
-    site_altitude = uproot4.open(filename)['MC_runheader'].member('obsheight')
+    site_altitude = uproot.open(filenames[0])['MC_runheader'].member('obsheight')
 
-    cut_class = particle_file['DL2EventTree/CutClass'].array(library='np')
+    # Combine a branch of several files:
+    cut_class = uproot.lazy([{f: "DL2EventTree"} for f in filenames], "CutClass")
+    cut_class = cut_class["CutClass"]
+    # cut_class = particle_file['DL2EventTree/CutClass'].array(library='np')
     # Cut 1: Events surviving gamma/hadron separation and direction cuts:
     mask_gamma_like_and_direction = cut_class == 5
 
@@ -101,18 +102,19 @@ def cli(filename, cut_level, debug, output, layout, event_type):
     elif cut_level == 2:
         data_mask = mask_gamma_like_and_direction
 
+    data_mask = data_mask.to_numpy()
+
     logging.info(f'Total number of events read from root file: {len(data_mask)}')
     logging.info(f'Total of selected events: {np.count_nonzero(data_mask)}')
 
     if event_type > 0:
         logging.info(f'Number of events within event_type file: {len(event_types)}')
-        logging.info(f'Ratio of training to simulated events: {np.sum(event_types == -1)/len(event_types)}')
+        logging.info(f'Ratio of training to simulated events: {np.sum(event_types == -1) / len(event_types)}')
         logging.info(f'len(data_mask): {len(data_mask)}')
         data_mask[data_mask] = event_types == event_type
         if np.sum(data_mask) == 0:
             raise ValueError("No events to export of event types == {}".format(event_type))
         logging.info(f'Surviving events: {np.count_nonzero(data_mask)} (event type {event_type})')
-        logging.info(f'len(data_mask): {len(data_mask)}')
 
     else:
         logging.info(f'Surviving events: {np.count_nonzero(data_mask)} (cut level {cut_level})')
@@ -135,15 +137,19 @@ def cli(filename, cut_level, debug, output, layout, event_type):
     for fits_key, (ed_key, unit) in EVENTS_COLUMNS.items():
         if unit is not None:
             events[fits_key] = u.Quantity(
-                particle_file['DL2EventTree/'+ed_key].array(library='np'),
+                uproot.lazy([{f: "DL2EventTree"} for f in filenames], ed_key)[ed_key][data_mask],
+                # particle_file['DL2EventTree/'+ed_key].array(library='np'),
                 unit, copy=False
-            )[data_mask]
+            )
         else:
-            events[fits_key] = particle_file['DL2EventTree/'+ed_key].array(library='np')[data_mask]
+            events[fits_key] = uproot.lazy([{f: "DL2EventTree"} for f in filenames],
+                                           ed_key)[ed_key][data_mask]
+            # events[fits_key] = particle_file['DL2EventTree/'+ed_key].array(library='np')[data_mask]
 
     # fake event numbers
     events['EVENT_ID'] = np.arange(len(events['MC_AZ']))
-    events['OBS_ID'] = particle_file['DL2EventTree/runNumber'].array(library='np')[data_mask]
+    events['OBS_ID'] = uproot.lazy([{f: "DL2EventTree"} for f in filenames], "runNumber")["runNumber"][data_mask]
+    # events['OBS_ID'] = particle_file['DL2EventTree/runNumber'].array(library='np')[data_mask]
     logging.debug("Creating HDUs to be contained within the fits file.")
 
     # Create primary HDU:
@@ -167,8 +173,8 @@ def cli(filename, cut_level, debug, output, layout, event_type):
     events_hdu = fits.BinTableHDU(events, header=header, name='EVENTS')
 
     # Store the histogram of simulated events vs MC_ENERGY
-    energy_low = u.Quantity(10**bin_edges[:-1], u.TeV, copy=False)
-    energy_high = u.Quantity(10**bin_edges[1:], u.TeV, copy=False)
+    energy_low = u.Quantity(10 ** bin_edges[:-1], u.TeV, copy=False)
+    energy_high = u.Quantity(10 ** bin_edges[1:], u.TeV, copy=False)
     num_events = bin_content
 
     simulated_events = Table()
