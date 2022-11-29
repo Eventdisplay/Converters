@@ -103,7 +103,7 @@ Events are not weighted while filling this histogram (in contrary to earlier ver
 Links
 -----
 
-CTA internal prod3b redmine page: https://forge.in2p3.fr/projects/cta_analysis-and-simulations/wiki/Eventdisplay_Prod3b_DL2_Lists
+CTA internal prod3b redmine page: https://redmine.cta-observatory.org/projects/cta_analysis-and-simulations/wiki/Eventdisplay_Prod3b_DL2_Lists
 (older version; needs to be updated)
 
 ## Installation
