@@ -45,7 +45,8 @@ jobs:
         uses: docker/build-push-action@v3
         with:
           context: .
-          push: ${{ github.event_name != 'pull_request' }}
+            # push: ${{ github.event_name != 'pull_request' }}
+          push: ${{ github.event_name != 'discussion_comment' }}
           file: ./Converters/DL3-IRFs/Dockerfile
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}-dl3-irf
