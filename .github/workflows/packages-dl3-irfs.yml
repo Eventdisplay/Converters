@@ -10,7 +10,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
+  IMAGE_NAME: ${{ github.repository }}/dl3-irfs
 
 jobs:
   build-dl3-irf-image:
@@ -37,8 +37,8 @@ jobs:
         uses: docker/metadata-action@v4
         with:
           tags: |
-            type=ref,event=pr,suffix=-cta-slib
-            type=semver,pattern={{major}}.{{minor}}.{{patch}},suffix=-cta-slib
+            type=ref,event=pr,suffix=-dl3-irfs
+            type=semver,pattern={{major}}.{{minor}}.{{patch}},suffix=-dl3-irfs
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
 
       - name: Build and push Docker image
