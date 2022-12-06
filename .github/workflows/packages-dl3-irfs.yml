@@ -10,7 +10,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}/dl3-irfs
+  IMAGE_NAME: ${{ github.repository }}
 
 jobs:
   build-dl3-irf-image:
@@ -48,5 +48,5 @@ jobs:
             # push: ${{ github.event_name != 'pull_request' }}
           push: ${{ github.event_name != 'discussion_comment' }}
           file: ./Converters/DL3-IRFs/Dockerfile
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}-dl3-irf
+          tags: ${{ steps.meta.outputs.tags }}-dl3-irfs
+          labels: ${{ steps.meta.outputs.labels }}-dl3-irfs
