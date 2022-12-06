@@ -119,3 +119,17 @@ Update your environment:
 ```
 conda env update -f environment.yml
 ```
+
+## Docker images
+
+Build a container with the software installed:
+```
+docker build -t dl2 .
+```
+
+Use the container, e.g., by:
+```
+$ docker run --rm -it -v "$(pwd):/workdir" dl2 \
+   ./generate_DL2_file.py -l LAYOUT_NAME \
+   /workdir/gamma_onSource.S.BL-4LSTs25MSTs70SSTs-MSTF_ID0.eff-0.root
+```
