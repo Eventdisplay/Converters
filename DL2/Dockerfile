@@ -14,7 +14,7 @@ RUN apt-get update && \
 ENV PATH /conda/bin:$PATH
 ENV PYTHONPATH=$PYTHONPATH:"/"
 
-COPY environment.yml environment.yml
+# COPY environment.yml environment.yml
 
 RUN wget --quiet https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O ~/miniconda.sh && \
     /bin/bash ~/miniconda.sh -b -p /conda && \
