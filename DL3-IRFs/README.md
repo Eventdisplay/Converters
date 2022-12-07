@@ -31,9 +31,10 @@ General syntax:
 Using the docker image discussed above, e.g.:
 
 ```
-$  docker run --rm -it -v "$(pwd):/workdir" dl3-irfs \
-   /data/Converters/DL3-IRFs/convertSensitivityFilesToFITS \
-   /workdir/data/Prod5-South-20deg-AverageAz-14MSTs37SSTs.180000s-v0.1.root \
+$  docker run --rm -it -v "$(pwd)":/workdir \
+   ghcr.io/eventdisplay/converters:pr-23-dl3-irfs-dl3-irfs
+   /workdir/convertSensitivityFilesToFITS \
+   /workdir/Prod5-South-20deg-AverageAz-14MSTs37SSTs.180000s-v0.1.root \
    /workdir/Prod5-South-20deg-AverageAz-14MSTs37SSTs.180000s-v0.1.fits.gz \
    3D
 ``` 

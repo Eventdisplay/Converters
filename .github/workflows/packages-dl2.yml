@@ -45,8 +45,7 @@ jobs:
         uses: docker/build-push-action@v3
         with:
           context: .
-            # push: ${{ github.event_name != 'pull_request' }}
-          push: ${{ github.event_name != 'discussion_comment' }}
+          push: ${{ github.event_name != 'pull_request' }}
           file: ./Converters/DL2/Dockerfile
           tags: ${{ steps.meta.outputs.tags }}-dl2
           labels: ${{ steps.meta.outputs.labels }}-dl2
