@@ -119,3 +119,16 @@ Update your environment:
 ```
 conda env update -f environment.yml
 ```
+
+## Docker images
+
+Docker images can be downloaded from the package directory: https://github.com/Eventdisplay/Converters/pkgs/container/converters
+
+
+Use the container, e.g., by:
+```
+$ docker run --rm -it -v "$(pwd):/workdir" \
+   ghcr.io/eventdisplay/converters:pr-23-dl2-dl2
+   ./generate_DL2_file.py -l LAYOUT_NAME \
+   /workdir/gamma_onSource.S.BL-4LSTs25MSTs70SSTs-MSTF_ID0.eff-0.root
+```

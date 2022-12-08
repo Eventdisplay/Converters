@@ -1,4 +1,4 @@
-# Conda environment 
+# Conda environment
 #
 # Install:
 # mamba env create -f environment.yml
@@ -8,11 +8,11 @@ name: EDconvert
 
 channels:
   - astropy
-  - defaults
+  - conda-forge
 
 dependencies:
   - numpy
   - astropy
   - click
-  - python==3.7
+  - python
   - uproot
