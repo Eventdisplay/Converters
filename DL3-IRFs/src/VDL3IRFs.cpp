@@ -770,6 +770,21 @@ bool VDL3IRFs::write_effarea( TH2F *h )
 }
 
 /*
+ * differential sensitivity
+ * 
+ */
+bool VDL3IRFs::write_diffsens( TH2F *h )
+{
+   bool writing_success = write_histo2D( h,
+                      "DIFFERENTIAL SENSITIVITY",
+                      (char*)"DIFFSENS",
+                      (char*)"erg cm^-2 s^-1",
+                      false );
+   write_fits_table_header( "DIFFSENS_2D" );
+   return writing_success;
+}
+
+/*
    write a 2D histogram to FITS
 */
 bool VDL3IRFs::write_histo2D( TH2F *h,

@@ -111,6 +111,11 @@ int main( int argc, char* argv[] )
              (TH2F*)fData->Get( "BGRatePerSqDeg_offaxis" ) );
     }
 
+    // differential sensitivity
+    cout << "Writing differential sensitivity IRFs" << endl;
+    a.write_diffsens(
+         (TH2F*)fData->Get( "DiffSens_offaxis" ) );
+
     a.write_fits_file();
 
     return 0;
