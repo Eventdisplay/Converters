@@ -4,9 +4,14 @@ see [GDAF website](https://gamma-astro-data-formats.readthedocs.io/en/latest/irf
 
 ## Installation
 
-Preferred installation is using docker.
+Preferred installation is using docker or apptainer.
 
-Using a prepared docker image to be downloaded from ghcr.io/eventdisplay/converters/dl3-irfs .
+Use the prepared docker image to be downloaded from ghcr.io/eventdisplay/converters/dl3-irfs .
+
+Easiest to use it interactively by opening a bash in the corresponding image, e.g.:
+```
+apptainer exec docker://ghcr.io/eventdisplay/converters:latest-dl3-irfs bash
+```
 
 Built the docker image on your own:
 
