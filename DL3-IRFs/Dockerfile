@@ -1,5 +1,6 @@
 # Dockerfile to build DL3-IRFs Converter for Eventdisplay
 From rootproject/root:6.26.06-ubuntu22.04
+ENV LC_ALL=C
 
 LABEL maintainer.name="Eventdisplay Team"
 LABEL maintainer.email="gernot.maier@desy.de"

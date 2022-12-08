@@ -1,5 +1,6 @@
 # Dockerfile to build DL2 Converter for Eventdisplay
 FROM python:3.10-slim
+ENV LC_ALL=C
 
 LABEL maintainer.name="Eventdisplay Team"
 LABEL maintainer.email="gernot.maier@desy.de"
