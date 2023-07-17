@@ -19,8 +19,7 @@ COPY Converters/DL2/environment.yml environment.yml
 
 RUN wget --quiet https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O ~/miniconda.sh && \
     /bin/bash ~/miniconda.sh -b -p /conda && \
-    rm ~/miniconda.sh && \
-    /conda/bin/conda clean -tipsy
+    rm ~/miniconda.sh
 RUN conda env update -n base --file environment.yml && \
     conda clean --all
 
