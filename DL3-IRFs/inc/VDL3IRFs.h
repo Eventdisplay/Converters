@@ -26,9 +26,9 @@ class VDL3IRFs
     void normalise_pdf( TH3F *h );
     bool printerror( int status );
     bool write_fits_keyword( char*, char*, char* );
-    bool write_fits_table_header( string irftype );
+    bool write_fits_table_header( string irftype, char* instrument );
     bool write_table( vector< vector< float > > table );
-    bool write_histo2D( TH2F *h, 
+    bool write_histo2D( TH2F *h,
                         string name,
                         char* col_name,
                         char* col_unit,
@@ -42,12 +42,12 @@ class VDL3IRFs
 
     bool open_fits_file( string fits_file_name );
     bool write_fits_header( char*, char* );
-    bool write_background( TH2F *h );
-    bool write_background_3D_from_2d( TH2F *h );
-    bool write_effarea( TH2F *h );
-    bool write_edisp( TH3F *h );
-    bool write_diffsens( TH2F* );
-    bool write_psf_gauss( TH2F *h );
-    bool write_psf_table( TH3F *h );
+    bool write_background( TH2F *h, char* );
+    bool write_background_3D_from_2d( TH2F *h, char* );
+    bool write_effarea( TH2F *h, char* );
+    bool write_edisp( TH3F *h, char* );
+    bool write_diffsens( TH2F*, char* );
+    bool write_psf_gauss( TH2F *h, char* );
+    bool write_psf_table( TH3F *h, char* );
     bool write_fits_file();
 };
