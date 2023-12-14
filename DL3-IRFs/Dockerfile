@@ -1,5 +1,5 @@
 # Dockerfile to build DL3-IRFs Converter for Eventdisplay
-From rootproject/root:6.26.06-ubuntu22.04
+From rootproject/root:6.30.02-ubuntu22.04
 ENV LC_ALL=C
 
 LABEL maintainer.name="Eventdisplay Team"
@@ -16,14 +16,14 @@ WORKDIR /data/
 ENV DATA /data/
 
 # Install and compile cfitsio
-RUN wget --quiet http://heasarc.gsfc.nasa.gov/FTP/software/fitsio/c/cfitsio-4.2.0.tar.gz && \
-    tar -xzf cfitsio-4.2.0.tar.gz && \
-    cd cfitsio-4.2.0 && \
+RUN wget --quiet http://heasarc.gsfc.nasa.gov/FTP/software/fitsio/c/cfitsio-4.3.1.tar.gz && \
+    tar -xzf cfitsio-4.3.1.tar.gz && \
+    cd cfitsio-4.3.1 && \
     ./configure --prefix=${DATA}/ && \
     make && \
     make install && \
     make clean && \
-    cd .. && rm -f cfitsio-4.2.0.tar.gz
+    cd .. && rm -f cfitsio-4.3.1.tar.gz
 
 ENV LD_LIBRARY_PATH "${DATA}/lib:${LD_LIBRARY_PATH}"
 
