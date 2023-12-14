@@ -14,7 +14,7 @@ Note the DL2 format used is based on the open specifications from:
 https://github.com/open-gamma-ray-astro/gamma-astro-data-formats
 
 The only modifications implemented were:
-* Adding MC parameters (true energy, true azimuth/zenith...) by adding to the column name (`MC_*`) 
+* Adding MC parameters (true energy, true azimuth/zenith...) by adding to the column name (`MC_*`)
 within the events table:
 
 ```bash
@@ -34,11 +34,11 @@ ColDefs(
 * Adding an additional HDU containing a histogram with the number of simulated events vs `MC_ENERGY`.
 ```bash
 No.    Name      Ver    Type      Cards   Dimensions   Format
-  0  PRIMARY       1 PrimaryHDU       7   ()      
-  1  EVENTS        1 BinTableHDU     44   549346R x 9C   [1K, 1K, 1E, 1E, 1E, 1E, 1E, 1E, 1J]   
-  2  SIMULATED EVENTS    1 BinTableHDU     21   1R x 3C   [60E, 60E, 60E]  
+  0  PRIMARY       1 PrimaryHDU       7   ()
+  1  EVENTS        1 BinTableHDU     44   549346R x 9C   [1K, 1K, 1E, 1E, 1E, 1E, 1E, 1E, 1J]
+  2  SIMULATED EVENTS    1 BinTableHDU     21   1R x 3C   [60E, 60E, 60E]
 ```
-The table is stored as a binary table with 3 columns: two columns defining the low and high `MC_ENERGY` bins, and a third column containing 
+The table is stored as a binary table with 3 columns: two columns defining the low and high `MC_ENERGY` bins, and a third column containing
 the number of events.
 ```bash
 ColDefs(
@@ -53,7 +53,7 @@ Input format from Eventdisplay Effective Area files
 
 ## Event trees
 
-DL2 events trees are called 'DL2EventTree' and include gamma/hadron cut statistics. 
+DL2 events trees are called 'DL2EventTree' and include gamma/hadron cut statistics.
 
 
 ### Data trees
