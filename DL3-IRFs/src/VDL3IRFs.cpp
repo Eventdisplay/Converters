@@ -46,10 +46,10 @@ bool VDL3IRFs::write_fits_file()
 }
 
 /*
-   write FITS header with 
+   write FITS header with
    basic information
 */
-bool VDL3IRFs::write_fits_header( 
+bool VDL3IRFs::write_fits_header(
              char *telescope,
              char *instrument )
 {
@@ -57,26 +57,26 @@ bool VDL3IRFs::write_fits_header(
    cout << "Instrument: " << instrument << endl;
 
    char author[] = "G.Maier";
-   if( fits_update_key( fptr, TSTRING, 
-                        (char*)"AUTHOR", 
-                        author, 
-                        (char*)"Author", 
+   if( fits_update_key( fptr, TSTRING,
+                        (char*)"AUTHOR",
+                        author,
+                        (char*)"Author",
                         &status ) )
    {
        return printerror( status );
    }
-   if( fits_update_key( fptr, TSTRING, 
-                        (char*)"TELESCOP", 
-                        telescope, 
-                        (char*)"Telescope name", 
+   if( fits_update_key( fptr, TSTRING,
+                        (char*)"TELESCOP",
+                        telescope,
+                        (char*)"Telescope name",
                         &status ) )
    {
        return printerror( status );
    }
-   if( fits_update_key( fptr, TSTRING, 
-                        (char*)"INSTRUME", 
-                        instrument, 
-                        (char*)"Instrument", 
+   if( fits_update_key( fptr, TSTRING,
+                        (char*)"INSTRUME",
+                        instrument,
+                        (char*)"Instrument",
                         &status ) )
    {
        return printerror( status );
@@ -84,15 +84,15 @@ bool VDL3IRFs::write_fits_header(
    return true;
 }
 
-bool VDL3IRFs::write_fits_keyword( 
+bool VDL3IRFs::write_fits_keyword(
                     char *key_name,
                     char *key_value,
                     char *key_comment )
 {
    int status = 0;
-   if( fits_update_key( fptr, 
-                        TSTRING, 
-                        key_name, 
+   if( fits_update_key( fptr,
+                        TSTRING,
+                        key_name,
                         key_value,
                         key_comment,
                         &status ) )
@@ -102,7 +102,7 @@ bool VDL3IRFs::write_fits_keyword(
    return true;
 }
 
-bool VDL3IRFs::write_fits_table_header( string irftype )
+bool VDL3IRFs::write_fits_table_header( string irftype, char *instrument )
 {
    cout << "write_fits_table_header " << irftype << endl;
 
@@ -111,7 +111,7 @@ bool VDL3IRFs::write_fits_table_header( string irftype )
                        (char*)"Name of telescope" );
 
    write_fits_keyword( (char*)"INSTRUME",
-                       (char*)"Southern Array",
+                       instrument,
                        (char*)"Instrument" );
 
    write_fits_keyword( (char*)"AUTHOR",
@@ -242,7 +242,7 @@ void VDL3IRFs::normalise_pdf( TH3F *h )
  * https://gamma-astro-data-formats.readthedocs.io/en/latest/irfs/full_enclosure/edisp/index.html
  *
 */
-bool VDL3IRFs::write_edisp( TH3F *h )
+bool VDL3IRFs::write_edisp( TH3F *h, char *instrument )
 {
    if( !h ) return false;
 
@@ -253,8 +253,8 @@ bool VDL3IRFs::write_edisp( TH3F *h )
    int status = 0;
 
    const int nCol = 7;
-   long nRows = h->GetNbinsX() 
-              * h->GetNbinsZ() 
+   long nRows = h->GetNbinsX()
+              * h->GetNbinsZ()
               * h->GetNbinsY();
    nRows = 0;
    char* tType[nCol] = { (char*)"ENERG_LO",
@@ -294,21 +294,21 @@ bool VDL3IRFs::write_edisp( TH3F *h )
                       &m_form[0] };
    ///////////////
    // create empty table
-   if( fits_create_tbl( fptr, 
-                        BINARY_TBL, 
-                        nRows, 
-                        nCol, 
-                        tType, 
-                        tForm, 
-                        tUnit, 
+   if( fits_create_tbl( fptr,
+                        BINARY_TBL,
+                        nRows,
+                        nCol,
+                        tType,
+                        tForm,
+                        tUnit,
                         "ENERGY DISPERSION",
                         &status ) )
    {
        return printerror( status );
    }
    // set dimensions
-   long int naxes[] = { h->GetNbinsX(), 
-                        h->GetNbinsY(), 
+   long int naxes[] = { h->GetNbinsX(),
+                        h->GetNbinsY(),
                         h->GetNbinsZ() };
    if( fits_write_tdim( fptr,
                         7,
@@ -320,7 +320,7 @@ bool VDL3IRFs::write_edisp( TH3F *h )
    }
 
    ///////////////
-   // write data 
+   // write data
    vector< vector< float > > table = get_baseline_axes( h );
 
    vector< float > data;
@@ -337,7 +337,7 @@ bool VDL3IRFs::write_edisp( TH3F *h )
    table.push_back( data );
 
    bool writing_success = write_table( table );
-   write_fits_table_header( "EDISP_2D" );
+   write_fits_table_header( "EDISP_2D", instrument );
 
    return writing_success;
 }
@@ -347,7 +347,7 @@ bool VDL3IRFs::write_edisp( TH3F *h )
     https://gamma-astro-data-formats.readthedocs.io/en/latest/irfs/full_enclosure/psf/psf_table/index.html
 
 */
-bool VDL3IRFs::write_psf_table( TH3F *h )
+bool VDL3IRFs::write_psf_table( TH3F *h, char *instrument )
 {
    if( !h ) return false;
 
@@ -357,8 +357,8 @@ bool VDL3IRFs::write_psf_table( TH3F *h )
    normalise_pdf( h );
 
    const int nCol = 7;
-   long nRows = h->GetNbinsX() 
-              * h->GetNbinsZ() 
+   long nRows = h->GetNbinsX()
+              * h->GetNbinsZ()
               * h->GetNbinsY();
    nRows = 0;
    char* tType[nCol] = { (char*)"ENERG_LO",
@@ -399,21 +399,21 @@ bool VDL3IRFs::write_psf_table( TH3F *h )
 
    ///////////////
    // create empty table
-   if( fits_create_tbl( fptr, 
-                        BINARY_TBL, 
-                        nRows, 
-                        nCol, 
-                        tType, 
-                        tForm, 
-                        tUnit, 
+   if( fits_create_tbl( fptr,
+                        BINARY_TBL,
+                        nRows,
+                        nCol,
+                        tType,
+                        tForm,
+                        tUnit,
                         "POINT SPREAD FUNCTION",
                         &status ) )
    {
        return printerror( status );
    }
    // set dimensions
-   long int naxes[] = { h->GetNbinsX(), 
-                        h->GetNbinsY(), 
+   long int naxes[] = { h->GetNbinsX(),
+                        h->GetNbinsY(),
                         h->GetNbinsZ() };
    if( fits_write_tdim( fptr,
                         7,
@@ -424,7 +424,7 @@ bool VDL3IRFs::write_psf_table( TH3F *h )
       return printerror( status );
    }
    ///////////////
-   // write data 
+   // write data
    vector< vector< float > > table = get_baseline_axes( h );
 
    vector< float > data;
@@ -441,7 +441,7 @@ bool VDL3IRFs::write_psf_table( TH3F *h )
    table.push_back( data );
 
    write_table( table );
-   write_fits_table_header( "PSF_TABLE" );
+   write_fits_table_header( "PSF_TABLE", instrument );
 
    return true;
 }
@@ -450,7 +450,7 @@ bool VDL3IRFs::write_psf_table( TH3F *h )
  *  Multi-Gauss mixture model
  *  https://gamma-astro-data-formats.readthedocs.io/en/latest/irfs/full_enclosure/psf/psf_3gauss/index.html#
 */
-bool VDL3IRFs::write_psf_gauss( TH2F *h )
+bool VDL3IRFs::write_psf_gauss( TH2F *h, char *instrument )
 {
    if( !h ) return false;
 
@@ -496,13 +496,13 @@ bool VDL3IRFs::write_psf_gauss( TH2F *h )
                       &z_form[0] };
    ///////////////
    // create empty table
-   if( fits_create_tbl( fptr, 
-                        BINARY_TBL, 
-                        nRows, 
-                        nCol, 
-                        tType, 
-                        tForm, 
-                        tUnit, 
+   if( fits_create_tbl( fptr,
+                        BINARY_TBL,
+                        nRows,
+                        nCol,
+                        tType,
+                        tForm,
+                        tUnit,
                         "POINT SPREAD FUNCTION",
                         &status ) )
    {
@@ -523,7 +523,7 @@ bool VDL3IRFs::write_psf_gauss( TH2F *h )
       }
    }
    ///////////////
-   // write data 
+   // write data
    vector< vector< float > > table = get_baseline_axes( h );
 
    // data
@@ -555,7 +555,7 @@ bool VDL3IRFs::write_psf_gauss( TH2F *h )
    }
 
    bool writing_success = write_table( table );
-   write_fits_table_header( "PSF_3GAUSS" );
+   write_fits_table_header( "PSF_3GAUSS", instrument );
 
    return writing_success;
 }
@@ -566,7 +566,7 @@ bool VDL3IRFs::write_psf_gauss( TH2F *h )
 */
 vector< float > VDL3IRFs::calculate_norm_mev_background( TH1 *h )
 {
-   if( !h ) 
+   if( !h )
    {
         vector< float > norm_mev_background;
         return norm_mev_background;
@@ -579,7 +579,7 @@ vector< float > VDL3IRFs::calculate_norm_mev_background( TH1 *h )
       // first two axes are E low and high
       // TeV --> MeV
       dE  = TMath::Power( 10., h->GetXaxis()->GetBinUpEdge( i+1 ) );
-      dE -= TMath::Power( 10., h->GetXaxis()->GetBinLowEdge( i+1 ) ); 
+      dE -= TMath::Power( 10., h->GetXaxis()->GetBinLowEdge( i+1 ) );
       dE *= 1.e6;
       norm_mev_background[i] /= dE;
    }
@@ -595,7 +595,7 @@ vector< float > VDL3IRFs::calculate_norm_mev_background( TH1 *h )
  *
  * - https://github.com/open-gamma-ray-astro/gamma-astro-data-formats/issues/153
  */
-bool VDL3IRFs::write_background_3D_from_2d( TH2F* h )
+bool VDL3IRFs::write_background_3D_from_2d( TH2F* h, char *instrument )
 {
    int status = 0;
 
@@ -603,7 +603,7 @@ bool VDL3IRFs::write_background_3D_from_2d( TH2F* h )
    int oversample_mult = 5;
 
    const int nCol = 7;
-   long nRows = h->GetNbinsX() 
+   long nRows = h->GetNbinsX()
               * h->GetNbinsY() * oversample_mult
               * h->GetNbinsY() * oversample_mult;;
    nRows = 0;
@@ -642,21 +642,21 @@ bool VDL3IRFs::write_background_3D_from_2d( TH2F* h )
                       &z_form[0] };
    ///////////////
    // create empty table
-   if( fits_create_tbl( fptr, 
-                        BINARY_TBL, 
-                        nRows, 
-                        nCol, 
-                        tType, 
-                        tForm, 
-                        tUnit, 
+   if( fits_create_tbl( fptr,
+                        BINARY_TBL,
+                        nRows,
+                        nCol,
+                        tType,
+                        tForm,
+                        tUnit,
                         "BACKGROUND",
                         &status ) )
    {
        return printerror( status );
    }
    // set dimensions
-   long int naxes[] = { h->GetNbinsX(), 
-                        h->GetNbinsY() * oversample_mult * 2, 
+   long int naxes[] = { h->GetNbinsX(),
+                        h->GetNbinsY() * oversample_mult * 2,
                         h->GetNbinsY() * oversample_mult * 2 };
    if( fits_write_tdim( fptr,
                         7,
@@ -665,10 +665,10 @@ bool VDL3IRFs::write_background_3D_from_2d( TH2F* h )
                         &status ) )
    {
       return printerror( status );
-   } 
+   }
 
    ///////////////
-   // write data 
+   // write data
    vector< vector< float > > table;
 
    // xaxis
@@ -715,7 +715,7 @@ bool VDL3IRFs::write_background_3D_from_2d( TH2F* h )
            {
                if( dr < h->GetYaxis()->GetXmax() )
                {
-                   data.push_back( 
+                   data.push_back(
                         h->Interpolate(
                             h->GetXaxis()->GetBinCenter( i+1 ),
                             dr ) );
@@ -726,7 +726,7 @@ bool VDL3IRFs::write_background_3D_from_2d( TH2F* h )
                }
                if( i < norm_mev_background.size() )
                {
-                   data.back() *= norm_mev_background[i]; 
+                   data.back() *= norm_mev_background[i];
                }
            }
        }
@@ -735,7 +735,7 @@ bool VDL3IRFs::write_background_3D_from_2d( TH2F* h )
 
    bool writing_success = write_table( table );
 
-   write_fits_table_header( "BKG_3D" );
+   write_fits_table_header( "BKG_3D", instrument );
    return writing_success;
 }
 
@@ -743,14 +743,14 @@ bool VDL3IRFs::write_background_3D_from_2d( TH2F* h )
  * background IRF
  * - https://github.com/open-gamma-ray-astro/gamma-astro-data-formats/issues/153
  */
-bool VDL3IRFs::write_background( TH2F *h )
+bool VDL3IRFs::write_background( TH2F *h, char *instrument )
 {
    bool writing_success = write_histo2D( h,
                       "BACKGROUND",
                       (char*)"BKG",
                       (char*)"s^-1 MeV^-1 sr^-1",
                       true );
-   write_fits_table_header( "BKG_2D" );
+   write_fits_table_header( "BKG_2D", instrument );
    return writing_success;
 }
 
@@ -758,29 +758,29 @@ bool VDL3IRFs::write_background( TH2F *h )
  * effective area IRF
  * - https://gamma-astro-data-formats.readthedocs.io/en/latest/irfs/full_enclosure/aeff/index.html
  */
-bool VDL3IRFs::write_effarea( TH2F *h )
+bool VDL3IRFs::write_effarea( TH2F *h, char *instrument )
 {
    bool writing_success = write_histo2D( h,
                       "EFFECTIVE AREA",
                       (char*)"EFFAREA",
                       (char*)"m**2",
                       false );
-   write_fits_table_header( "AEFF_2D" );
+   write_fits_table_header( "AEFF_2D", instrument );
    return writing_success;
 }
 
 /*
  * differential sensitivity
- * 
+ *
  */
-bool VDL3IRFs::write_diffsens( TH2F *h )
+bool VDL3IRFs::write_diffsens( TH2F *h, char *instrument )
 {
    bool writing_success = write_histo2D( h,
                       "DIFFERENTIAL SENSITIVITY",
                       (char*)"DIFFSENS",
                       (char*)"erg cm^-2 s^-1",
                       false );
-   write_fits_table_header( "DIFFSENS_2D" );
+   write_fits_table_header( "DIFFSENS_2D", instrument );
    return writing_success;
 }
 
@@ -823,14 +823,14 @@ bool VDL3IRFs::write_histo2D( TH2F *h,
 
    ///////////////
    // create empty table
-   if( fits_create_tbl( fptr, 
-                        BINARY_TBL, 
-                        nRows, 
-                        nCol, 
-                        tType, 
-                        tForm, 
-                        tUnit, 
-                        name.c_str() , 
+   if( fits_create_tbl( fptr,
+                        BINARY_TBL,
+                        nRows,
+                        nCol,
+                        tType,
+                        tForm,
+                        tUnit,
+                        name.c_str() ,
                         &status ) )
    {
        return printerror( status );
@@ -846,9 +846,9 @@ bool VDL3IRFs::write_histo2D( TH2F *h,
       return printerror( status );
    }
    ///////////////
-   // write data 
+   // write data
    vector< vector< float > > table = get_baseline_axes( h );
-   // coordinate conversion from 
+   // coordinate conversion from
    // 1/deg^2/s --> 1/sr^2/s
    vector< float > norm_mev_background( h->GetNbinsX(), 1. );
    if( MEV_BACKGROUND_UNIT )
@@ -866,7 +866,7 @@ bool VDL3IRFs::write_histo2D( TH2F *h,
           // (all vector sizes checked)
           if( MEV_BACKGROUND_UNIT )
           {
-              data.push_back( h->GetBinContent( i+1, j+1 ) 
+              data.push_back( h->GetBinContent( i+1, j+1 )
                              * norm_mev_background[i] );
           }
           else
@@ -888,7 +888,7 @@ bool VDL3IRFs::write_table( vector< vector< float > > table )
    for( unsigned int i = 0; i < table.size(); i++ )
    {
        cout << "\t writing column " << i+1 << "\t" << table[i].size() << endl;
-       if( fits_write_col( fptr, 
+       if( fits_write_col( fptr,
                        TFLOAT,
                        i+1,
                        1,
