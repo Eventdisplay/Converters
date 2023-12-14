@@ -19,11 +19,9 @@ COPY Converters/DL2/environment.yml environment.yml
 
 RUN wget --quiet https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O ~/miniconda.sh && \
     /bin/bash ~/miniconda.sh -b -p /conda && \
-    rm ~/miniconda.sh && \
-    /conda/bin/conda clean -tipsy && \
-    /conda/bin/conda install -c conda-forge mamba
-RUN mamba env update -n base --file environment.yml && \
-    mamba clean --all && conda remove --yes mamba && conda clean --all
+    rm ~/miniconda.sh
+RUN conda env update -n base --file environment.yml && \
+    conda clean --all
 
 WORKDIR /workdir/
 
