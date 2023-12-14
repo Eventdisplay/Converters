@@ -15,4 +15,4 @@ dependencies:
   - astropy
   - click
   - python
-  - uproot
+  - uproot=4.2.4
