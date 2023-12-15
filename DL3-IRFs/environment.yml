@@ -1,4 +1,7 @@
-# conda env create -f environment.yml
+# Conda environment
+#
+# Install:
+# mamba env create -f environment.yml
 # conda activate dl3irfs
 
 name: dl3irfs

@@ -3,14 +3,14 @@
 # Install:
 # mamba env create -f environment.yml
 # conda activate EDconvert
-#
-name: EDconvert
 
+name: EDconvert
 channels:
   - astropy
   - conda-forge
 
 dependencies:
+  - pre-commit
   - numpy
   - astropy
   - click
