@@ -110,8 +110,9 @@ def cli(filenames, cut_level, debug, output, layout, event_type):
 
     if event_type > 0:
         logging.info(f"Number of events within event_type file: {len(event_types)}")
+        ratio = np.sum(event_types == -1) / len(event_types)
         logging.info(
-            f"Ratio of training to simulated events: {np.sum(event_types == -1) / len(event_types)}"
+            f"Ratio of training to simulated events: {ratio}"
         )
         logging.info(f"len(data_mask): {len(data_mask)}")
         data_mask[data_mask] = event_types == event_type
@@ -121,6 +122,7 @@ def cli(filenames, cut_level, debug, output, layout, event_type):
 
     else:
         logging.info(f"Surviving events: {np.count_nonzero(data_mask)} (cut level {cut_level})")
+        ratio = 0
 
     # columns readable without transformation
     EVENTS_COLUMNS = {
@@ -187,7 +189,10 @@ def cli(filenames, cut_level, debug, output, layout, event_type):
     # Store the histogram of simulated events vs MC_ENERGY
     energy_low = u.Quantity(10 ** bin_edges[:-1], u.TeV, copy=False)
     energy_high = u.Quantity(10 ** bin_edges[1:], u.TeV, copy=False)
-    num_events = bin_content
+    # If there are events used in the event-types training, that proportion must be
+    # excluded from the number of events in the simulation, so the IRFs can be
+    # then computed properly
+    num_events = bin_content * (1 - ratio)
 
     simulated_events = Table()
     simulated_events["MC_ENERG_LO"] = energy_low
