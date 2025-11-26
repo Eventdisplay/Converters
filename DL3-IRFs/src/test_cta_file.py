@@ -1,7 +1,7 @@
 # Test program for OGADF scheme using ogadf_schema
 """
-   usage:  python src/test_cta_file.py <file.fits.gz>
-           (only 3D implemented at this point)
+usage:  python src/test_cta_file.py <file.fits.gz>
+        (only 3D implemented at this point)
 """
 import logging
 import sys
