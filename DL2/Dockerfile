@@ -8,8 +8,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 WORKDIR /workdir/
 
-# COPY Converters/DL2/environment.yml /tmp/environment.yml
-COPY environment.yml /tmp/environment.yml
+COPY Converters/DL2/environment.yml /tmp/environment.yml
 
 # Create environment using micromamba
 RUN micromamba install -y -n base -f /tmp/environment.yml && \
