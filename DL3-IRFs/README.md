@@ -40,8 +40,8 @@ Using the docker image discussed above, e.g.:
 
 ```bash
 $  docker run --rm -it -v "$(pwd)":/workdir \
-   ghcr.io/eventdisplay/converters:latest-dl3-irfs
-   /workdir/convertSensitivityFilesToFITS \
+   ghcr.io/eventdisplay/converters:latest-dl3-irfs \
+   /data/Converters/DL3-IRFs/convertSensitivityFilesToFITS \
    /workdir/Prod5-South-20deg-AverageAz-14MSTs37SSTs.180000s-v0.1.root \
    /workdir/Prod5-South-20deg-AverageAz-14MSTs37SSTs.180000s-v0.1.fits.gz \
    3D
