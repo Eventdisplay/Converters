@@ -111,9 +111,7 @@ def cli(filenames, cut_level, debug, output, layout, event_type):
     if event_type > 0:
         logging.info(f"Number of events within event_type file: {len(event_types)}")
         ratio = np.sum(event_types == -1) / len(event_types)
-        logging.info(
-            f"Ratio of training to simulated events: {ratio}"
-        )
+        logging.info(f"Ratio of training to simulated events: {ratio}")
         logging.info(f"len(data_mask): {len(data_mask)}")
         data_mask[data_mask] = event_types == event_type
         if np.sum(data_mask) == 0:
@@ -165,12 +163,12 @@ def cli(filenames, cut_level, debug, output, layout, event_type):
     # Create primary HDU:
     primary_hdu = fits.PrimaryHDU()
     primary_hdu.header["TELESCOP"] = layout, "Telescope and array codename"
-    primary_hdu.header[
-        "COMMENT"
-    ] = "FITS (Flexible Image Transport System) format is defined in 'Astronomy"
-    primary_hdu.header[
-        "COMMENT"
-    ] = "and Astrophysics', volume 376, page 359; bibcode: 2001A&A...376..359H"
+    primary_hdu.header["COMMENT"] = (
+        "FITS (Flexible Image Transport System) format is defined in 'Astronomy"
+    )
+    primary_hdu.header["COMMENT"] = (
+        "and Astrophysics', volume 376, page 359; bibcode: 2001A&A...376..359H"
+    )
 
     # Create HDU
     header = fits.Header()
