@@ -151,7 +151,7 @@ bool VDL3IRFs::write_fits_table_header( string irftype, char *instrument )
                        (char*)"RESPONSE",
                        (char*)"HDUCLAS1" );
 
-   if( irftype == "PSF_3GAUSS" )
+   if( irftype == "PSF_3GAUSS" || irftype == "PSF_TABLE" )
    {
        write_fits_keyword( (char*)"HDUCLAS2",
                            (char*)"PSF",
