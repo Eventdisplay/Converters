@@ -899,7 +899,7 @@ bool VDL3IRFs::write_histo2D( TH2F *h,
                              * norm_mev_background[i] );
               if( include_uncertainty )
               {
-                  // Get bin error (averaging asymmetric errors if available)
+                  // Get the symmetric bin error and scale it with the background normalisation
                   float error = h->GetBinError( i+1, j+1 );
                   errors.push_back( error * norm_mev_background[i] );
               }
