@@ -803,11 +803,11 @@ bool VDL3IRFs::write_histo2D( TH2F *h,
    long nRows = h->GetNbinsX() * h->GetNbinsY();
    nRows = 0;
    
-   // Column names - create error column name in static buffer
-   char err_col_name[50];
+   // Column names - create error column name using std::string
+   string err_col_name;
    if( include_uncertainty )
    {
-       snprintf( err_col_name, sizeof(err_col_name), "%s_ERR", col_name );
+       err_col_name = string(col_name) + "_ERR";
    }
    
    // Arrays sized for maximum columns; fits_create_tbl uses only first nCol entries
@@ -816,7 +816,7 @@ bool VDL3IRFs::write_histo2D( TH2F *h,
                            (char*)"THETA_LO",
                            (char*)"THETA_HI",
                            (char*)col_name,
-                           include_uncertainty ? err_col_name : (char*)"" };
+                           include_uncertainty ? (char*)err_col_name.c_str() : (char*)"" };
    
    char* tUnit[maxCol] = { (char*)"TeV",
                            (char*)"TeV",
