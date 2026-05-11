@@ -151,7 +151,7 @@ bool VDL3IRFs::write_fits_table_header( string irftype, char *instrument )
                        (char*)"RESPONSE",
                        (char*)"HDUCLAS1" );
 
-   if( irftype == "PSF_3GAUSS" || irftype == "PSF_TABLE" )
+   if( irftype == "POINT SPREAD FUNCTION" || irftype == "PSF_TABLE" )
    {
        write_fits_keyword( (char*)"HDUCLAS2",
                            (char*)"PSF",
@@ -503,7 +503,7 @@ bool VDL3IRFs::write_psf_gauss( TH2F *h, char *instrument )
                         tType,
                         tForm,
                         tUnit,
-                        "PSF_3GAUSS",
+                        "POINT SPREAD FUNCTION",
                         &status ) )
    {
        return printerror( status );
@@ -555,7 +555,7 @@ bool VDL3IRFs::write_psf_gauss( TH2F *h, char *instrument )
    }
 
    bool writing_success = write_table( table );
-   write_fits_table_header( "PSF_3GAUSS", instrument );
+   write_fits_table_header( "POINT SPREAD FUNCTION", instrument );
 
    return writing_success;
 }

@@ -88,9 +88,14 @@ int main( int argc, char* argv[] )
          (char*)getArrayName(fData) );
 
     cout << "Writing gamma-ray point-spread function (3D table)" << endl;
-    a.write_psf_table(
-         (TH3F*)fData->Get( "AngularPSF2DEtrue_offaxis" ),
-         (char*)getArrayName(fData) );
+    TH3F* psf_table_hist = (TH3F*)fData->Get( "AngularPSF2DEtrue_offaxis" );
+    if( psf_table_hist ) {
+        if( !a.write_psf_table( psf_table_hist, (char*)getArrayName(fData) ) ) {
+            cerr << "Error: Failed to write PSF_TABLE" << endl;
+        }
+    } else {
+        cout << "Warning: AngularPSF2DEtrue_offaxis histogram not found, skipping PSF_TABLE" << endl;
+    }
 
     // edisp
     // note: note using migration matrix MigMatrixNoTheta2cut_offaxis
