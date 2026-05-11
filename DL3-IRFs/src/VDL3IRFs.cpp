@@ -406,7 +406,7 @@ bool VDL3IRFs::write_psf_table( TH3F *h, char *instrument )
                         tType,
                         tForm,
                         tUnit,
-                        "POINT SPREAD FUNCTION",
+                        "PSF_TABLE",
                         &status ) )
    {
        return printerror( status );
@@ -503,7 +503,7 @@ bool VDL3IRFs::write_psf_gauss( TH2F *h, char *instrument )
                         tType,
                         tForm,
                         tUnit,
-                        "POINT SPREAD FUNCTION",
+                        "PSF_3GAUSS",
                         &status ) )
    {
        return printerror( status );
