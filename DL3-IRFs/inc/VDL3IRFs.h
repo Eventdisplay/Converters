@@ -32,7 +32,8 @@ class VDL3IRFs
                         string name,
                         char* col_name,
                         char* col_unit,
-                        bool MEV_BACKGROUND_UNIT = false );
+                        bool MEV_BACKGROUND_UNIT = false,
+                        bool include_uncertainty = false );
 
 
     public:

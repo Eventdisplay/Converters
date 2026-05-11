@@ -87,12 +87,10 @@ int main( int argc, char* argv[] )
          (TH2F*)fData->Get( "AngResEtrue_offaxis" ),
          (char*)getArrayName(fData) );
 
-    /*
     cout << "Writing gamma-ray point-spread function (3D table)" << endl;
     a.write_psf_table(
          (TH3F*)fData->Get( "AngularPSF2DEtrue_offaxis" ),
          (char*)getArrayName(fData) );
-    */
 
     // edisp
     // note: note using migration matrix MigMatrixNoTheta2cut_offaxis
