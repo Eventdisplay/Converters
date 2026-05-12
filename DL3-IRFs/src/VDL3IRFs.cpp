@@ -440,10 +440,12 @@ bool VDL3IRFs::write_psf_table( TH3F *h, char *instrument )
    }
    table.push_back( data );
 
-   write_table( table );
-   write_fits_table_header( "PSF_TABLE", instrument );
-
-   return true;
+   bool writing_success = write_table( table );
+   if( writing_success )
+   {
+       write_fits_table_header( "PSF_TABLE", instrument );
+   }
+   return writing_success;
 }
 
 /*
@@ -555,8 +557,10 @@ bool VDL3IRFs::write_psf_gauss( TH2F *h, char *instrument )
    }
 
    bool writing_success = write_table( table );
-   write_fits_table_header( "PSF_3GAUSS", instrument );
-
+   if( writing_success )
+   {
+       write_fits_table_header( "PSF_3GAUSS", instrument );
+   }
    return writing_success;
 }
 
