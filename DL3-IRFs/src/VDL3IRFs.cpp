@@ -337,8 +337,10 @@ bool VDL3IRFs::write_edisp( TH3F *h, char *instrument )
    table.push_back( data );
 
    bool writing_success = write_table( table );
-   write_fits_table_header( "EDISP_2D", instrument );
-
+   if( writing_success )
+   {
+       write_fits_table_header( "EDISP_2D", instrument );
+   }
    return writing_success;
 }
 
@@ -739,7 +741,10 @@ bool VDL3IRFs::write_background_3D_from_2d( TH2F* h, char *instrument )
 
    bool writing_success = write_table( table );
 
-   write_fits_table_header( "BKG_3D", instrument );
+   if( writing_success )
+   {
+       write_fits_table_header( "BKG_3D", instrument );
+   }
    return writing_success;
 }
 
@@ -754,7 +759,10 @@ bool VDL3IRFs::write_background( TH2F *h, char *instrument )
                       (char*)"BKG",
                       (char*)"s^-1 MeV^-1 sr^-1",
                       true );
-   write_fits_table_header( "BKG_2D", instrument );
+   if( writing_success )
+   {
+       write_fits_table_header( "BKG_2D", instrument );
+   }
    return writing_success;
 }
 
@@ -770,7 +778,10 @@ bool VDL3IRFs::write_effarea( TH2F *h, char *instrument )
                       (char*)"m**2",
                       false,
                       true );
-   write_fits_table_header( "AEFF_2D", instrument );
+   if( writing_success )
+   {
+       write_fits_table_header( "AEFF_2D", instrument );
+   }
    return writing_success;
 }
 
@@ -785,7 +796,10 @@ bool VDL3IRFs::write_diffsens( TH2F *h, char *instrument )
                       (char*)"DIFFSENS",
                       (char*)"erg cm^-2 s^-1",
                       false );
-   write_fits_table_header( "DIFFSENS_2D", instrument );
+   if( writing_success )
+   {
+       write_fits_table_header( "DIFFSENS_2D", instrument );
+   }
    return writing_success;
 }
 
