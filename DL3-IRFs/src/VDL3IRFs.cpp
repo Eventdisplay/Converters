@@ -542,7 +542,9 @@ bool VDL3IRFs::write_psf_gauss( TH2F *h, char *instrument )
           data.push_back( h->GetBinContent( i+1, j+1 ) * 0.6624305 );
           if( data.back() > 0. )
           {
-             scale.push_back( 1./ (2.*TMath::Pi()*data.back() ) );
+             // SCALE = 1/(2*pi*sigma_rad^2)
+             float sigma_rad = data.back() * TMath::Pi() / 180.;
+             scale.push_back( 1./ (2.*TMath::Pi()*sigma_rad*sigma_rad) );
           }
           else
           {
