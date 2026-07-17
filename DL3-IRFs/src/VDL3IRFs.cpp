@@ -151,7 +151,7 @@ bool VDL3IRFs::write_fits_table_header( string irftype, char *instrument )
                        (char*)"RESPONSE",
                        (char*)"HDUCLAS1" );
 
-   if( irftype == "PSF_3GAUSS" )
+   if( irftype == "PSF_3GAUSS" || irftype == "PSF_TABLE" )
    {
        write_fits_keyword( (char*)"HDUCLAS2",
                            (char*)"PSF",
@@ -337,8 +337,10 @@ bool VDL3IRFs::write_edisp( TH3F *h, char *instrument )
    table.push_back( data );
 
    bool writing_success = write_table( table );
-   write_fits_table_header( "EDISP_2D", instrument );
-
+   if( writing_success )
+   {
+       write_fits_table_header( "EDISP_2D", instrument );
+   }
    return writing_success;
 }
 
@@ -363,10 +365,10 @@ bool VDL3IRFs::write_psf_table( TH3F *h, char *instrument )
    nRows = 0;
    char* tType[nCol] = { (char*)"ENERG_LO",
                       (char*)"ENERG_HI",
+                      (char*)"RAD_LO",
+                      (char*)"RAD_HI",
                       (char*)"THETA_LO",
                       (char*)"THETA_HI",
-                      (char*)"MIGRA_LO",
-                      (char*)"MIGRA_HI",
                       (char*)"RPSF" };
    char* tUnit[nCol] = { (char*)"TeV",
                       (char*)"TeV",
@@ -378,10 +380,10 @@ bool VDL3IRFs::write_psf_table( TH3F *h, char *instrument )
    // e_true axis is x-axis
    char x_form[10];
    sprintf( x_form, "%dE", h->GetNbinsX() );
-   // Offset angle from source position
+   // Offset angle from source position (y-axis, RAD)
    char y_form[10];
    sprintf( y_form, "%dE", h->GetNbinsY() );
-   // offset angle axis is z-axis
+   // Field of view offset angle (z-axis, THETA)
    char z_form[10];
    sprintf( z_form, "%dE", h->GetNbinsZ() );
    // mig
@@ -406,7 +408,7 @@ bool VDL3IRFs::write_psf_table( TH3F *h, char *instrument )
                         tType,
                         tForm,
                         tUnit,
-                        "POINT SPREAD FUNCTION",
+                        "PSF_TABLE",
                         &status ) )
    {
        return printerror( status );
@@ -440,10 +442,12 @@ bool VDL3IRFs::write_psf_table( TH3F *h, char *instrument )
    }
    table.push_back( data );
 
-   write_table( table );
-   write_fits_table_header( "PSF_TABLE", instrument );
-
-   return true;
+   bool writing_success = write_table( table );
+   if( writing_success )
+   {
+       write_fits_table_header( "PSF_TABLE", instrument );
+   }
+   return writing_success;
 }
 
 /*
@@ -555,8 +559,10 @@ bool VDL3IRFs::write_psf_gauss( TH2F *h, char *instrument )
    }
 
    bool writing_success = write_table( table );
-   write_fits_table_header( "PSF_3GAUSS", instrument );
-
+   if( writing_success )
+   {
+       write_fits_table_header( "PSF_3GAUSS", instrument );
+   }
    return writing_success;
 }
 
@@ -735,7 +741,10 @@ bool VDL3IRFs::write_background_3D_from_2d( TH2F* h, char *instrument )
 
    bool writing_success = write_table( table );
 
-   write_fits_table_header( "BKG_3D", instrument );
+   if( writing_success )
+   {
+       write_fits_table_header( "BKG_3D", instrument );
+   }
    return writing_success;
 }
 
@@ -750,7 +759,10 @@ bool VDL3IRFs::write_background( TH2F *h, char *instrument )
                       (char*)"BKG",
                       (char*)"s^-1 MeV^-1 sr^-1",
                       true );
-   write_fits_table_header( "BKG_2D", instrument );
+   if( writing_success )
+   {
+       write_fits_table_header( "BKG_2D", instrument );
+   }
    return writing_success;
 }
 
@@ -764,8 +776,12 @@ bool VDL3IRFs::write_effarea( TH2F *h, char *instrument )
                       "EFFECTIVE AREA",
                       (char*)"EFFAREA",
                       (char*)"m**2",
-                      false );
-   write_fits_table_header( "AEFF_2D", instrument );
+                      false,
+                      true );
+   if( writing_success )
+   {
+       write_fits_table_header( "AEFF_2D", instrument );
+   }
    return writing_success;
 }
 
@@ -780,7 +796,10 @@ bool VDL3IRFs::write_diffsens( TH2F *h, char *instrument )
                       (char*)"DIFFSENS",
                       (char*)"erg cm^-2 s^-1",
                       false );
-   write_fits_table_header( "DIFFSENS_2D", instrument );
+   if( writing_success )
+   {
+       write_fits_table_header( "DIFFSENS_2D", instrument );
+   }
    return writing_success;
 }
 
@@ -791,35 +810,50 @@ bool VDL3IRFs::write_histo2D( TH2F *h,
                                string name,
                                char* col_name,
                                char* col_unit,
-                               bool MEV_BACKGROUND_UNIT )
+                               bool MEV_BACKGROUND_UNIT,
+                               bool include_uncertainty )
 {
    if( !h ) return false;
 
    int status = 0;
-   const int nCol = 5;
+   const int nCol = include_uncertainty ? 6 : 5;
+   const int maxCol = 6;  // Maximum possible columns (with uncertainty)
    long nRows = h->GetNbinsX() * h->GetNbinsY();
    nRows = 0;
-   char* tType[nCol] = { (char*)"ENERG_LO",
-                      (char*)"ENERG_HI",
-                      (char*)"THETA_LO",
-                      (char*)"THETA_HI",
-                      (char*)col_name };
-   char* tUnit[nCol] = { (char*)"TeV",
-                      (char*)"TeV",
-                      (char*)"deg",
-                      (char*)"deg",
-                      (char*)col_unit };
+   
+   // Column names - create error column name using std::string
+   string err_col_name;
+   if( include_uncertainty )
+   {
+       err_col_name = string(col_name) + "_ERR";
+   }
+   
+   // Arrays sized for maximum columns; fits_create_tbl uses only first nCol entries
+   char* tType[maxCol] = { (char*)"ENERG_LO",
+                           (char*)"ENERG_HI",
+                           (char*)"THETA_LO",
+                           (char*)"THETA_HI",
+                           (char*)col_name,
+                           include_uncertainty ? (char*)err_col_name.c_str() : (char*)"" };
+   
+   char* tUnit[maxCol] = { (char*)"TeV",
+                           (char*)"TeV",
+                           (char*)"deg",
+                           (char*)"deg",
+                           (char*)col_unit,
+                           (char*)col_unit };
    char x_form[10];
    sprintf( x_form, "%dE", h->GetNbinsX() );
    char y_form[10];
    sprintf( y_form, "%dE", h->GetNbinsY() );
    char z_form[10];
    sprintf( z_form, "%dE", h->GetNbinsX()*h->GetNbinsY() );
-   char* tForm[nCol] = { &x_form[0],
-                      &x_form[0],
-                      &y_form[0],
-                      &y_form[0],
-                      &z_form[0] };
+   char* tForm[maxCol] = { &x_form[0],
+                           &x_form[0],
+                           &y_form[0],
+                           &y_form[0],
+                           &z_form[0],
+                           &z_form[0] };
 
    ///////////////
    // create empty table
@@ -845,6 +879,18 @@ bool VDL3IRFs::write_histo2D( TH2F *h,
    {
       return printerror( status );
    }
+   // set dimensions for uncertainty column if present
+   if( include_uncertainty )
+   {
+       if( fits_write_tdim( fptr,
+                            6,
+                            2,
+                            naxes,
+                            &status ) )
+       {
+          return printerror( status );
+       }
+   }
    ///////////////
    // write data
    vector< vector< float > > table = get_baseline_axes( h );
@@ -858,6 +904,7 @@ bool VDL3IRFs::write_histo2D( TH2F *h,
 
    // data
    vector< float > data;
+   vector< float > errors;
    for( int j = 0; j < h->GetNbinsY(); j++ )
    {
       for( int i = 0; i < h->GetNbinsX(); i++ )
@@ -868,15 +915,31 @@ bool VDL3IRFs::write_histo2D( TH2F *h,
           {
               data.push_back( h->GetBinContent( i+1, j+1 )
                              * norm_mev_background[i] );
+              if( include_uncertainty )
+              {
+                  // Get the symmetric bin error and scale it with the background normalisation
+                  float error = h->GetBinError( i+1, j+1 );
+                  errors.push_back( error * norm_mev_background[i] );
+              }
           }
           else
           {
               data.push_back( h->GetBinContent( i+1, j+1 ) );
+              if( include_uncertainty )
+              {
+                  errors.push_back( h->GetBinError( i+1, j+1 ) );
+              }
           }
 
       }
    }
    table.push_back( data );
+   
+   // Add uncertainty column if requested
+   if( include_uncertainty )
+   {
+       table.push_back( errors );
+   }
 
    return write_table( table );
 }
