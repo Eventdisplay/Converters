@@ -1,7 +1,18 @@
 #include "VDL3IRFs.h"
 #include <algorithm>
 #include <cmath>
+#include <fstream>
+#include <iomanip>
 #include <utility>
+
+#include "TCanvas.h"
+#include "TGraph.h"
+#include "TH1D.h"
+#include "TLatex.h"
+#include "TLine.h"
+#include "TPad.h"
+#include "TROOT.h"
+#include "TStyle.h"
 
 VDL3IRFs::VDL3IRFs()
 {
@@ -489,14 +500,12 @@ struct GaussMixture
  * sigma_ratio: null for free sigmas; otherwise sigma_k / sigma_1 of the
  *              components, fixing the shape of the mixture so that only the
  *              scale (sigma_1) and the weights are fitted
- * n_eff_out:   effective number of entries of the distribution
  */
 GaussMixture fit_gauss_mixture( const vector< double >& r_lo,
                                 const vector< double >& r_hi,
                                 const vector< double >& prob,
                                 double r68,
-                                const double* sigma_ratio,
-                                double* n_eff_out )
+                                const double* sigma_ratio )
 {
     GaussMixture m;
     m.valid = false;
@@ -509,7 +518,6 @@ GaussMixture fit_gauss_mixture( const vector< double >& r_lo,
     // only filled bins contribute to the multinomial likelihood
     vector< double > a, b, w;
     double sum = 0.;
-    double sum2 = 0.;
     double min_width = 1.e99;
     for( unsigned int i = 0; i < prob.size(); i++ )
     {
@@ -519,14 +527,10 @@ GaussMixture fit_gauss_mixture( const vector< double >& r_lo,
             b.push_back( r_hi[i] );
             w.push_back( prob[i] );
             sum += prob[i];
-            sum2 += prob[i] * prob[i];
             min_width = min( min_width, r_hi[i] - r_lo[i] );
         }
     }
     if( w.empty() || sum <= 0. || r68 <= 0. ) return m;
-    // effective number of entries (bin contents can be weighted)
-    const double n_eff = sum * sum / sum2;
-    if( n_eff_out ) *n_eff_out = n_eff;
     for( unsigned int i = 0; i < w.size(); i++ ) w[i] /= sum;
 
     // sigma below 1/2 bin width cannot be constrained by the data
@@ -703,6 +707,401 @@ double containment_radius( const vector< double >& r_hi,
     return r_last;
 }
 
+
+/*
+ * Number of events behind a radial distribution with weighted contents.
+ *
+ * With the squared sum of weights (Sumw2) of the histogram: sum(w)^2 / sum(w^2).
+ * Otherwise: the weight of a single event is estimated by the smallest filled bin
+ * (the radial bins are fine enough that the tails hold single events, and the
+ * weights vary little within an energy bin); events = sum(w) / w_single.
+ */
+double estimate_events( const vector< double >& prob, const vector< double >* err2 )
+{
+    double sum = 0.;
+    double sum2 = 0.;
+    double w_single = 1.e99;
+    for( unsigned int i = 0; i < prob.size(); i++ )
+    {
+        sum += prob[i];
+        if( err2 ) sum2 += ( *err2 )[i];
+        if( prob[i] > 0. ) w_single = min( w_single, prob[i] );
+    }
+    if( sum <= 0. ) return 0.;
+    if( err2 && sum2 > 0. ) return sum * sum / sum2;
+    return sum / w_single;
+}
+
+/*
+ * goodness of fit of a mixture to a binned radial distribution
+ */
+struct PsfFitQuality
+{
+    double n_eff;        // (effective) number of events
+    double chi2;         // see evaluate_fit
+    int    ndf;          // degrees of freedom (<= 0: chi2 not meaningful)
+    double ks;           // maximum difference of the enclosed fractions
+    double r68_table;    // deg
+    double r68_fit;      // deg
+};
+
+// enclosed fraction of the mixture within radius r (deg)
+double mixture_cdf( const GaussMixture& m, double r )
+{
+    double c = 0.;
+    for( int k = 0; k < N_GAUSS; k++ )
+    {
+        if( m.sigma[k] > 0. ) c += m.weight[k] * ( 1. - exp( -r * r / ( 2. * m.sigma[k] * m.sigma[k] ) ) );
+    }
+    return c;
+}
+
+// radius (deg) enclosing a fraction of the mixture
+double mixture_radius( const GaussMixture& m, double containment, double r_max )
+{
+    double lo = 0.;
+    double hi = r_max;
+    for( int i = 0; i < 60; i++ )
+    {
+        const double mid = 0.5 * ( lo + hi );
+        if( mixture_cdf( m, mid ) < containment * mixture_cdf( m, r_max ) ) lo = mid;
+        else                                                                hi = mid;
+    }
+    return 0.5 * ( lo + hi );
+}
+
+/*
+ * Pearson chi2 between the histogram and the mixture (both normalised within
+ * the histogram range) with radial bins merged until at least 5 events are
+ * expected. Histogram contents are weighted, therefore the number of events is
+ * the estimated one (estimate_events). ndf = bins - 1 - 3 fitted parameters
+ * (sigma_1 and two weights; the sigma ratios are fixed).
+ * KS: largest difference between the enclosed fractions of mixture and histogram.
+ */
+PsfFitQuality evaluate_fit( const vector< double >& r_lo,
+                            const vector< double >& r_hi,
+                            const vector< double >& prob,
+                            const GaussMixture& m,
+                            double n_eff )
+{
+    PsfFitQuality q;
+    q.n_eff = n_eff;
+    q.chi2 = 0.;
+    q.ndf = 0;
+    q.ks = 0.;
+    q.r68_table = containment_radius( r_hi, prob, 0.68 );
+    q.r68_fit = mixture_radius( m, 0.68, r_hi.back() );
+
+    double sum = 0.;
+    for( unsigned int i = 0; i < prob.size(); i++ ) sum += prob[i];
+    const double norm = mixture_cdf( m, r_hi.back() );
+    if( sum <= 0. || norm <= 0. ) return q;
+
+    double cum = 0.;
+    double expected = 0.;
+    double observed = 0.;
+    int n_bins = 0;
+    for( unsigned int i = 0; i < prob.size(); i++ )
+    {
+        const double model_prob = ( mixture_cdf( m, r_hi[i] ) - mixture_cdf( m, r_lo[i] ) ) / norm;
+        cum += prob[i] / sum;
+        q.ks = max( q.ks, fabs( cum - mixture_cdf( m, r_hi[i] ) / norm ) );
+        expected += n_eff * model_prob;
+        observed += n_eff * prob[i] / sum;
+        if( expected >= 5. )
+        {
+            q.chi2 += ( observed - expected ) * ( observed - expected ) / expected;
+            n_bins++;
+            expected = 0.;
+            observed = 0.;
+        }
+    }
+    // remainder joins the last bin
+    if( expected > 0. && n_bins > 0 )
+    {
+        q.chi2 += ( observed - expected ) * ( observed - expected ) / expected;
+    }
+    q.ndf = n_bins - 1 - 3;
+    return q;
+}
+
+/*
+ * Plot the fits: one image (<file_name>_offaxis<N>.png) per off-axis bin with up to six true energy bins
+ * (density of the histogram, mixture and its components, enclosed fraction)
+ */
+void plot_psf_fits( TH3F* h,
+                    const vector< GaussMixture >& fit,
+                    const vector< PsfFitQuality >& quality,
+                    const vector< vector< double > >& profile,
+                    const string& file_name )
+{
+    const int nE = h->GetNbinsX();
+    const int nT = h->GetNbinsZ();
+    const int nR = h->GetNbinsY();
+    const double r_max = h->GetYaxis()->GetBinUpEdge( nR );
+
+    const bool batch = gROOT->IsBatch();
+    gROOT->SetBatch( kTRUE );
+    const int old_opt_stat = gStyle->GetOptStat();
+    gStyle->SetOptStat( 0 );
+    gStyle->SetOptTitle( 0 );
+
+    // logarithmic radial bins for the histogram
+    const int nPlotBins = 40;
+    const double r_first = 2.e-3;
+    vector< double > edges( nPlotBins + 1 );
+    for( int i = 0; i <= nPlotBins; i++ )
+    {
+        edges[i] = r_first * pow( r_max / r_first, double( i ) / nPlotBins );
+    }
+    const int nPlotR = 300;
+    // panels: 3 columns x 2 rows, each with a density and a ratio pad
+    const int nPad = 6;
+    const int nCol = 3;
+    const int nRow = 2;
+
+    for( int k = 0; k < nT; k++ )
+    {
+        // energy bins with a fit, evenly spread
+        vector< int > fitted;
+        for( int i = 0; i < nE; i++ )
+        {
+            if( fit[k*nE+i].valid ) fitted.push_back( i );
+        }
+        if( fitted.empty() ) continue;
+        vector< int > selected;
+        for( int p = 0; p < nPad && p < (int)fitted.size(); p++ )
+        {
+            const int index = ( fitted.size() == 1 ) ? 0
+                              : (int)floor( 0.5 + p * ( fitted.size() - 1. ) / max( 1, min( nPad, (int)fitted.size() ) - 1 ) );
+            if( selected.empty() || selected.back() != fitted[index] ) selected.push_back( fitted[index] );
+        }
+
+        TCanvas* c = new TCanvas( Form( "c_psf_%d", k ), "PSF fits", 1500, 1000 );
+        for( unsigned int p = 0; p < selected.size(); p++ )
+        {
+            const int i = selected[p];
+            const GaussMixture& m = fit[k*nE+i];
+            const PsfFitQuality& q = quality[k*nE+i];
+            const vector< double >& prob = profile[k*nE+i];
+            double sum = 0.;
+            for( int j = 0; j < nR; j++ ) sum += prob[j];
+
+            // enclosed fraction of the histogram at the plot bin edges
+            vector< double > cum_edges( nPlotBins + 1, 0. );
+            double cum = 0.;
+            int jbin = 0;
+            for( int e = 0; e <= nPlotBins; e++ )
+            {
+                while( jbin < nR && h->GetYaxis()->GetBinUpEdge( jbin+1 ) <= edges[e] )
+                {
+                    cum += prob[jbin] / sum;
+                    jbin++;
+                }
+                double frac = 0.;
+                if( jbin < nR )
+                {
+                    const double lo = h->GetYaxis()->GetBinLowEdge( jbin+1 );
+                    const double wd = h->GetYaxis()->GetBinWidth( jbin+1 );
+                    frac = ( edges[e] - lo ) / wd * prob[jbin] / sum;
+                }
+                cum_edges[e] = cum + frac;
+            }
+
+            // density (per deg^2) of the histogram
+            TH1D* hd = new TH1D( Form( "hd_%d_%u", k, p ), "", nPlotBins, &edges[0] );
+            double d_min = 1.e99;
+            for( int b = 1; b <= nPlotBins; b++ )
+            {
+                const double area = TMath::Pi() * ( edges[b] * edges[b] - edges[b-1] * edges[b-1] );
+                const double d = ( cum_edges[b] - cum_edges[b-1] ) / area;
+                hd->SetBinContent( b, d );
+                if( d > 0. ) d_min = min( d_min, d );
+            }
+            hd->SetLineColor( kBlack );
+            hd->SetLineWidth( 2 );
+
+            TGraph* g_tot = new TGraph( nPlotR );
+            TGraph* g_comp[N_GAUSS];
+            TGraph* g_ratio = new TGraph();
+            for( int cI = 0; cI < N_GAUSS; cI++ ) g_comp[cI] = new TGraph( nPlotR );
+            double d_max = 0.;
+            const double norm = mixture_cdf( m, r_max );
+            for( int ir = 0; ir < nPlotR; ir++ )
+            {
+                const double r = 3.e-4 * pow( r_max / 3.e-4, double( ir ) / ( nPlotR - 1 ) );
+                double total = 0.;
+                for( int cI = 0; cI < N_GAUSS; cI++ )
+                {
+                    const double dc = m.weight[cI] / ( norm * 2. * TMath::Pi() * m.sigma[cI] * m.sigma[cI] )
+                                      * exp( -r * r / ( 2. * m.sigma[cI] * m.sigma[cI] ) );
+                    g_comp[cI]->SetPoint( ir, r, max( dc, 1.e-30 ) );
+                    total += dc;
+                }
+                g_tot->SetPoint( ir, r, max( total, 1.e-30 ) );
+                d_max = max( d_max, total );
+                // enclosed fraction ratio (not meaningful where the histogram has few entries)
+                if( r > 0.005 )
+                {
+                    double table_cdf = 0.;
+                    for( int j = 0; j < nR; j++ )
+                    {
+                        const double hi_edge = h->GetYaxis()->GetBinUpEdge( j+1 );
+                        if( hi_edge <= r ) table_cdf += prob[j] / sum;
+                        else
+                        {
+                            const double lo_edge = h->GetYaxis()->GetBinLowEdge( j+1 );
+                            table_cdf += ( r - lo_edge ) / ( hi_edge - lo_edge ) * prob[j] / sum;
+                            break;
+                        }
+                    }
+                    if( table_cdf > 0. ) g_ratio->SetPoint( g_ratio->GetN(), r, mixture_cdf( m, r ) / norm / table_cdf );
+                }
+            }
+            g_tot->SetLineColor( kRed + 1 );
+            g_tot->SetLineWidth( 3 );
+            const int comp_color[N_GAUSS] = { kBlue + 1, kOrange + 1, kGreen + 2 };
+            for( int cI = 0; cI < N_GAUSS; cI++ )
+            {
+                g_comp[cI]->SetLineColor( comp_color[cI] );
+                g_comp[cI]->SetLineStyle( 2 );
+                g_comp[cI]->SetLineWidth( 1 );
+            }
+
+            // density pad
+            const double x0 = ( p % nCol ) / double( nCol );
+            const double x1 = ( p % nCol + 1 ) / double( nCol );
+            const double y1 = 1. - ( p / nCol ) / double( nRow );
+            const double y0 = 1. - ( p / nCol + 1 ) / double( nRow );
+            const double ym = y0 + 0.33 * ( y1 - y0 );
+            c->cd();
+            TPad* pad = new TPad( Form( "pad_%d_%u", k, p ), "", x0, ym, x1, y1 );
+            pad->Draw();
+            pad->cd();
+            pad->SetLogx();
+            pad->SetLogy();
+            pad->SetLeftMargin( 0.14 );
+            pad->SetRightMargin( 0.02 );
+            pad->SetBottomMargin( 0.01 );
+            pad->SetTopMargin( 0.08 );
+            // headroom for the annotations
+            const double y_min = max( d_min / 3., 1.e-4 );
+            hd->SetMinimum( y_min );
+            hd->SetMaximum( d_max * pow( d_max / y_min, 0.45 ) );
+            hd->GetXaxis()->SetLabelSize( 0. );
+            hd->GetYaxis()->SetTitle( "PSF density [deg^{-2}]" );
+            hd->GetYaxis()->SetTitleOffset( 1.3 );
+            hd->GetYaxis()->SetTitleSize( 0.05 );
+            hd->GetYaxis()->SetLabelSize( 0.045 );
+            hd->Draw( "hist" );
+            for( int cI = 0; cI < N_GAUSS; cI++ ) g_comp[cI]->Draw( "L same" );
+            g_tot->Draw( "L same" );
+            hd->Draw( "hist same" );
+
+            TLatex t;
+            t.SetNDC();
+            t.SetTextSize( 0.05 );
+            t.DrawLatex( 0.15, 0.93, Form( "E = %.3g - %.3g TeV, off-axis %.2g - %.2g deg",
+                         pow( 10., h->GetXaxis()->GetBinLowEdge( i+1 ) ),
+                         pow( 10., h->GetXaxis()->GetBinUpEdge( i+1 ) ),
+                         h->GetZaxis()->GetBinLowEdge( k+1 ),
+                         h->GetZaxis()->GetBinUpEdge( k+1 ) ) );
+            // annotations in the empty upper right part of the pad
+            t.SetTextSize( 0.045 );
+            t.SetTextAlign( 31 );
+            const double xt = 0.97;
+            double yt = 0.84;
+            const double dy = 0.062;
+            if( q.ndf > 0 ) t.DrawLatex( xt, yt, Form( "#chi^{2}/ndf = %.1f/%d = %.2f", q.chi2, q.ndf, q.chi2 / q.ndf ) );
+            else            t.DrawLatex( xt, yt, "#chi^{2}/ndf: too few events" );
+            yt -= dy;
+            t.DrawLatex( xt, yt, Form( "KS distance = %.3f", q.ks ) );
+            yt -= dy;
+            t.DrawLatex( xt, yt, Form( "N_{events} = %.0f", q.n_eff ) );
+            yt -= dy;
+            t.DrawLatex( xt, yt, Form( "R68 hist./fit = %.3f/%.3f deg", q.r68_table, q.r68_fit ) );
+            for( int cI = 0; cI < N_GAUSS; cI++ )
+            {
+                yt -= dy;
+                t.SetTextColor( comp_color[cI] );
+                t.DrawLatex( xt, yt, Form( "#sigma_{%d} = %.3f deg, w = %.2f", cI + 1, m.sigma[cI], m.weight[cI] ) );
+            }
+            t.SetTextColor( kBlack );
+
+            // ratio pad
+            c->cd();
+            TPad* rpad = new TPad( Form( "rpad_%d_%u", k, p ), "", x0, y0, x1, ym );
+            rpad->Draw();
+            rpad->cd();
+            rpad->SetLogx();
+            rpad->SetLeftMargin( 0.14 );
+            rpad->SetRightMargin( 0.02 );
+            rpad->SetTopMargin( 0.02 );
+            rpad->SetBottomMargin( 0.32 );
+            rpad->SetGridy();
+            TH1D* frame = new TH1D( Form( "hr_%d_%u", k, p ), "", nPlotBins, &edges[0] );
+            frame->SetMinimum( 0.7 );
+            frame->SetMaximum( 1.3 );
+            frame->GetXaxis()->SetTitle( "radius [deg]" );
+            frame->GetYaxis()->SetTitle( "fit / histogram" );
+            frame->GetXaxis()->SetTitleSize( 0.1 );
+            frame->GetXaxis()->SetLabelSize( 0.09 );
+            frame->GetXaxis()->SetTitleOffset( 1.0 );
+            frame->GetYaxis()->SetTitleSize( 0.09 );
+            frame->GetYaxis()->SetLabelSize( 0.08 );
+            frame->GetYaxis()->SetTitleOffset( 0.65 );
+            frame->GetYaxis()->SetNdivisions( 505 );
+            frame->Draw( "axis" );
+            TLine* one = new TLine( edges[0], 1., edges[nPlotBins], 1. );
+            one->Draw();
+            g_ratio->SetLineColor( kRed + 1 );
+            g_ratio->SetLineWidth( 2 );
+            g_ratio->Draw( "L same" );
+        }
+        // one image per off-axis bin
+        const string image_name = file_name + Form( "_offaxis%d.png", k );
+        c->Print( image_name.c_str() );
+        delete c;
+    }
+    gStyle->SetOptStat( old_opt_stat );
+    gROOT->SetBatch( batch );
+}
+
+/*
+ * one line per fitted bin
+ */
+void write_psf_fit_report( TH3F* h,
+                           const vector< GaussMixture >& fit,
+                           const vector< PsfFitQuality >& quality,
+                           const string& file_name )
+{
+    ofstream out( file_name.c_str() );
+    if( !out ) return;
+    out << "theta_lo_deg,theta_hi_deg,e_lo_tev,e_hi_tev,n_events,"
+        << "sigma_1_deg,sigma_2_deg,sigma_3_deg,weight_1,weight_2,weight_3,"
+        << "chi2,ndf,chi2_per_ndf,ks_distance,r68_hist_deg,r68_fit_deg" << endl;
+    const int nE = h->GetNbinsX();
+    const int nT = h->GetNbinsZ();
+    for( int k = 0; k < nT; k++ )
+    {
+        for( int i = 0; i < nE; i++ )
+        {
+            const GaussMixture& m = fit[k*nE+i];
+            const PsfFitQuality& q = quality[k*nE+i];
+            if( !m.valid ) continue;
+            out << h->GetZaxis()->GetBinLowEdge( k+1 ) << ","
+                << h->GetZaxis()->GetBinUpEdge( k+1 ) << ","
+                << pow( 10., h->GetXaxis()->GetBinLowEdge( i+1 ) ) << ","
+                << pow( 10., h->GetXaxis()->GetBinUpEdge( i+1 ) ) << ","
+                << q.n_eff << ","
+                << m.sigma[0] << "," << m.sigma[1] << "," << m.sigma[2] << ","
+                << m.weight[0] << "," << m.weight[1] << "," << m.weight[2] << ","
+                << q.chi2 << "," << q.ndf << ","
+                << ( q.ndf > 0 ? q.chi2 / q.ndf : -1. ) << ","
+                << q.ks << "," << q.r68_table << "," << q.r68_fit << endl;
+        }
+    }
+}
 }
 
 /*
@@ -719,8 +1118,11 @@ double containment_radius( const vector< double >& r_hi,
  *  in sr^-1 (sigma in rad), such that P integrates to one.
  *
  *  h: PSF histogram (x: log10 E_true, y: radius [deg], z: off-axis angle [deg])
+ *
+ *  fit_report_base: if not empty, write the fit quality of each bin to
+ *  <fit_report_base>_psf_fit.csv and plots of the fits to <fit_report_base>_psf_fit_offaxis<N>.png
 */
-bool VDL3IRFs::write_psf_gauss( TH3F *h, char *instrument )
+bool VDL3IRFs::write_psf_gauss( TH3F *h, char *instrument, string fit_report_base )
 {
    if( !h ) return false;
 
@@ -822,6 +1224,10 @@ bool VDL3IRFs::write_psf_gauss( TH3F *h, char *instrument )
 
    // read radial distributions (same statistics requirement as for PSF_TABLE)
    vector< vector< double > > profile( nE * nT );
+   vector< double > n_eff( nE * nT, 0. );
+   const bool has_errors = ( h->GetSumw2N() > 0 );
+   const double min_events = 10.;
+   int n_too_few = 0;
    for( int k = 0; k < nT; k++ )
    {
        for( int i = 0; i < nE; i++ )
@@ -833,7 +1239,26 @@ bool VDL3IRFs::write_psf_gauss( TH3F *h, char *instrument )
                prob[j] = h->GetBinContent( i+1, j+1, k+1 );
                sum += prob[j];
            }
-           if( sum > 10. ) profile[k*nE+i] = prob;
+           if( sum > 10. )
+           {
+               profile[k*nE+i] = prob;
+               vector< double > err2( nR, 0. );
+               if( has_errors )
+               {
+                   for( int j = 0; j < nR; j++ )
+                   {
+                       const double e = h->GetBinError( i+1, j+1, k+1 );
+                       err2[j] = e * e;
+                   }
+               }
+               n_eff[k*nE+i] = estimate_events( prob, has_errors ? &err2 : 0 );
+               // a mixture cannot be constrained by a handful of events
+               if( n_eff[k*nE+i] < min_events )
+               {
+                   profile[k*nE+i].clear();
+                   n_too_few++;
+               }
+           }
        }
    }
 
@@ -844,7 +1269,6 @@ bool VDL3IRFs::write_psf_gauss( TH3F *h, char *instrument )
    // from free fits, smoothed over neighbouring energy bins, and kept fixed
    // when fitting the scale and the weights of each bin.
    double n_eff_max = 0.;
-   vector< double > n_eff( nE * nT, 0. );
    vector< GaussMixture > free_fit( nE * nT );
    for( unsigned int p = 0; p < profile.size(); p++ )
    {
@@ -852,7 +1276,7 @@ bool VDL3IRFs::write_psf_gauss( TH3F *h, char *instrument )
        if( profile[p].empty() ) continue;
        free_fit[p] = fit_gauss_mixture( r_lo, r_hi, profile[p],
                                         containment_radius( r_hi, profile[p], 0.68 ),
-                                        0, &n_eff[p] );
+                                        0 );
        n_eff_max = max( n_eff_max, n_eff[p] );
    }
    // log of sigma_k/sigma_1 and weight of each bin in the smoothing
@@ -872,6 +1296,8 @@ bool VDL3IRFs::write_psf_gauss( TH3F *h, char *instrument )
    const double kernel_width = 1.0;
    int n_fitted = 0;
    int n_failed = 0;
+   vector< GaussMixture > final_fit( nE * nT );
+   vector< PsfFitQuality > quality( nE * nT );
    vector< float > scale, sigma[N_GAUSS], ampl[N_GAUSS];
    // off-axis angle bins outer, true energy bins inner (as in the FITS table)
    for( int k = 0; k < nT; k++ )
@@ -899,10 +1325,15 @@ bool VDL3IRFs::write_psf_gauss( TH3F *h, char *instrument )
                }
                m = fit_gauss_mixture( r_lo, r_hi, prob,
                                       containment_radius( r_hi, prob, 0.68 ),
-                                      sigma_ratio, 0 );
-               if( m.valid ) n_fitted++;
+                                      sigma_ratio );
+               if( m.valid )
+               {
+                   n_fitted++;
+                   quality[k*nE+i] = evaluate_fit( r_lo, r_hi, prob, m, n_eff[k*nE+i] );
+               }
                else          n_failed++;
            }
+           final_fit[k*nE+i] = m;
            if( m.valid )
            {
                const double s1 = m.sigma[0] * TMath::DegToRad();
@@ -932,6 +1363,63 @@ bool VDL3IRFs::write_psf_gauss( TH3F *h, char *instrument )
         << " (E_true, off-axis) bins";
    if( n_failed > 0 ) cout << ", " << n_failed << " failed";
    cout << endl;
+   if( n_too_few > 0 )
+   {
+       cout << "\tPSF_3GAUSS: " << n_too_few << " bins with fewer than " << min_events
+            << " events (estimated) not fitted (set to zero)" << endl;
+   }
+
+   // goodness of fit
+   vector< double > chi2_red, ks, r68_dev;
+   int n_poor = 0;
+   int n_low_stat = 0;
+   const double low_stat_events = 100.;
+   for( unsigned int p = 0; p < final_fit.size(); p++ )
+   {
+       if( !final_fit[p].valid ) continue;
+       const PsfFitQuality& q = quality[p];
+       if( q.n_eff < low_stat_events ) n_low_stat++;
+       ks.push_back( q.ks );
+       if( q.r68_table > 0. ) r68_dev.push_back( fabs( q.r68_fit / q.r68_table - 1. ) );
+       if( q.ndf > 0 )
+       {
+           chi2_red.push_back( q.chi2 / q.ndf );
+           if( q.chi2 / q.ndf > 3. ) n_poor++;
+       }
+   }
+   auto median_max = []( vector< double > v, double& med, double& mx )
+   {
+       med = 0.;
+       mx = 0.;
+       if( v.empty() ) return;
+       sort( v.begin(), v.end() );
+       med = v[v.size() / 2];
+       mx = v.back();
+   };
+   double chi2_med, chi2_max, ks_med, ks_max, r68_med, r68_max;
+   median_max( chi2_red, chi2_med, chi2_max );
+   median_max( ks, ks_med, ks_max );
+   median_max( r68_dev, r68_med, r68_max );
+   cout << "\tPSF_3GAUSS goodness of fit (" << chi2_red.size() << " bins with enough events for chi2):" << endl;
+   cout << "\t\tchi2/ndf:        median " << chi2_med << ", maximum " << chi2_max
+        << ", " << n_poor << " bins above 3" << endl;
+   cout << "\t\tKS distance:     median " << ks_med << ", maximum " << ks_max << endl;
+   cout << "\t\t|R68 fit/hist-1|: median " << r68_med << ", maximum " << r68_max << endl;
+   if( n_low_stat > 0 )
+   {
+       cout << "\t\tWarning: " << n_low_stat << " of " << n_fitted << " fitted bins have fewer than "
+            << low_stat_events << " events (estimated); the fits and the PSF histogram are noisy there" << endl;
+   }
+
+   if( !fit_report_base.empty() )
+   {
+       const string csv_name = fit_report_base + "_psf_fit.csv";
+       const string plot_name = fit_report_base + "_psf_fit";
+       write_psf_fit_report( h, final_fit, quality, csv_name );
+       cout << "\tPSF_3GAUSS fit report written to " << csv_name << endl;
+       plot_psf_fits( h, final_fit, quality, profile, plot_name );
+       cout << "\tPSF_3GAUSS fit plots written to " << plot_name << "_offaxis<N>.png" << endl;
+   }
 
    table.push_back( scale );
    for( int c = 0; c < N_GAUSS; c++ ) table.push_back( sigma[c] );

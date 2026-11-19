@@ -29,17 +29,19 @@ char* getArrayName( TFile *fData )
 
 int main( int argc, char* argv[] )
 {
-    if( argc != 4 )
+    if( argc != 4 && argc != 5 )
     {
         cout << endl;
         cout << "./convertSensitivityFilesToFITS <input root file (.root)> ";
         cout << "<output FITS file (.fits/.fits.gz)> ";
-        cout << " <2D/3D>" << endl;
+        cout << " <2D/3D> [noplots]" << endl;
         cout << endl;
         cout << " converts IRFs in ROOT format to GADF FITS format" << endl;
         cout << "     existing files are overwritten" << endl;
         cout << endl;
         cout << "\t <2D/3D> 3D: extrapolate 2D histograms to 3D (default)" << endl;
+        cout << "\t noplots: do not write the PSF fit report (.csv) and plots (.png)" << endl;
+        cout << "\t          (written next to the output FITS file)" << endl;
         cout << endl;
         exit( EXIT_SUCCESS );
     }
@@ -50,6 +52,18 @@ int main( int argc, char* argv[] )
     string fRootFile = argv[1];
     string fFitsFileName = argv[2];
     string f2D3D = argv[3];
+    bool fPSFFitPlots = !( argc == 5 && string( argv[4] ) == "noplots" );
+
+    // base name for the PSF fit report and plots
+    string fPSFFitBase = fFitsFileName;
+    for( const string ext : { ".gz", ".fits" } )
+    {
+        if( fPSFFitBase.size() > ext.size()
+            && fPSFFitBase.compare( fPSFFitBase.size() - ext.size(), ext.size(), ext ) == 0 )
+        {
+            fPSFFitBase.erase( fPSFFitBase.size() - ext.size() );
+        }
+    }
 
     cout << "Reading root file from " << fRootFile << endl;
     cout << "Writing FITS file to " << fFitsFileName << endl;
@@ -86,7 +100,8 @@ int main( int argc, char* argv[] )
     if( psf_table_hist )
     {
         cout << "Writing gamma-ray point-spread function (Gaussian mixture)" << endl;
-        if( !a.write_psf_gauss( psf_table_hist, (char*)getArrayName(fData) ) )
+        if( !a.write_psf_gauss( psf_table_hist, (char*)getArrayName(fData),
+                                fPSFFitPlots ? fPSFFitBase : "" ) )
         {
             cerr << "Error: Failed to write PSF_3GAUSS" << endl;
         }
