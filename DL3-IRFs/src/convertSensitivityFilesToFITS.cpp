@@ -82,15 +82,16 @@ int main( int argc, char* argv[] )
          (char*)getArrayName(fData) );
 
     // psf
-    cout << "Writing gamma-ray point-spread function (Gaussian approximation)" << endl;
-    a.write_psf_gauss(
-         (TH2F*)fData->Get( "AngResEtrue_offaxis" ),
-         (char*)getArrayName(fData) );
-
-    cout << "Writing gamma-ray point-spread function (3D table)" << endl;
     TH3F* psf_table_hist = (TH3F*)fData->Get( "AngularPSF2DEtrue_offaxis" );
     if( psf_table_hist )
     {
+        cout << "Writing gamma-ray point-spread function (Gaussian mixture)" << endl;
+        if( !a.write_psf_gauss( psf_table_hist, (char*)getArrayName(fData) ) )
+        {
+            cerr << "Error: Failed to write PSF_3GAUSS" << endl;
+        }
+
+        cout << "Writing gamma-ray point-spread function (3D table)" << endl;
         if( !a.write_psf_table( psf_table_hist, (char*)getArrayName(fData) ) )
         {
             cerr << "Error: Failed to write PSF_TABLE" << endl;
@@ -98,7 +99,7 @@ int main( int argc, char* argv[] )
     }
     else
     {
-        cout << "Warning: AngularPSF2DEtrue_offaxis histogram not found, skipping PSF_TABLE" << endl;
+        cout << "Warning: AngularPSF2DEtrue_offaxis histogram not found, skipping PSF_3GAUSS and PSF_TABLE" << endl;
     }
 
     // edisp

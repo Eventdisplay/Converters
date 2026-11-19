@@ -47,6 +47,15 @@ $  docker run --rm -it -v "$(pwd)":/workdir \
    3D
 ```
 
+## Point-spread function
+
+Both PSF HDUs are derived from the radial distributions in `AngularPSF2DEtrue_offaxis`:
+
+- `PSF_TABLE`: the (normalised) radial distributions.
+- `PSF_3GAUSS`: a mixture of three 2D Gaussians fitted (binned maximum likelihood) to the same distributions in each true-energy and off-axis bin, on the energy and off-axis grid of `AngularPSF2DEtrue_offaxis`.
+  `SCALE` is normalised such that the mixture integrates to one.
+  The sigma ratios of the components are smoothed over neighbouring energy bins, as gammapy interpolates the mixture parameters between bins. Bins without sufficient statistics (sum of entries <= 10) are set to zero (as in `PSF_TABLE`).
+
 ## Testing
 
 Install ogadf tools:

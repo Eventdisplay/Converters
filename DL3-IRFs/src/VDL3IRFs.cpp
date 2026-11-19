@@ -1,4 +1,6 @@
 #include "VDL3IRFs.h"
+#include <algorithm>
+#include <cmath>
 #include <utility>
 
 VDL3IRFs::VDL3IRFs()
@@ -461,18 +463,273 @@ bool VDL3IRFs::write_psf_table( TH3F *h, char *instrument )
    return writing_success;
 }
 
+namespace
+{
+
+const int N_GAUSS = 3;
+
+struct GaussMixture
+{
+    // component weights (sum to one), sigma in deg (ascending)
+    double weight[N_GAUSS];
+    double sigma[N_GAUSS];
+    bool valid;
+};
+
+/*
+ * Fit a mixture of 2D Gaussians to a binned radial distribution
+ *
+ * Binned maximum-likelihood fit using the EM algorithm, with the radial bin
+ * probabilities of a 2D Gaussian (Rayleigh distribution) integrated
+ * over each bin: exp(-r_lo^2/2s^2) - exp(-r_hi^2/2s^2).
+ *
+ * r_lo, r_hi:  bin edges (deg)
+ * prob:        bin content (any normalisation)
+ * r68:         68% containment radius, used for the starting values
+ * sigma_ratio: null for free sigmas; otherwise sigma_k / sigma_1 of the
+ *              components, fixing the shape of the mixture so that only the
+ *              scale (sigma_1) and the weights are fitted
+ * n_eff_out:   effective number of entries of the distribution
+ */
+GaussMixture fit_gauss_mixture( const vector< double >& r_lo,
+                                const vector< double >& r_hi,
+                                const vector< double >& prob,
+                                double r68,
+                                const double* sigma_ratio,
+                                double* n_eff_out )
+{
+    GaussMixture m;
+    m.valid = false;
+    for( int k = 0; k < N_GAUSS; k++ )
+    {
+        m.weight[k] = 0.;
+        m.sigma[k] = 0.;
+    }
+
+    // only filled bins contribute to the multinomial likelihood
+    vector< double > a, b, w;
+    double sum = 0.;
+    double sum2 = 0.;
+    double min_width = 1.e99;
+    for( unsigned int i = 0; i < prob.size(); i++ )
+    {
+        if( prob[i] > 0. )
+        {
+            a.push_back( r_lo[i] );
+            b.push_back( r_hi[i] );
+            w.push_back( prob[i] );
+            sum += prob[i];
+            sum2 += prob[i] * prob[i];
+            min_width = min( min_width, r_hi[i] - r_lo[i] );
+        }
+    }
+    if( w.empty() || sum <= 0. || r68 <= 0. ) return m;
+    // effective number of entries (bin contents can be weighted)
+    const double n_eff = sum * sum / sum2;
+    if( n_eff_out ) *n_eff_out = n_eff;
+    for( unsigned int i = 0; i < w.size(); i++ ) w[i] /= sum;
+
+    // sigma below 1/2 bin width cannot be constrained by the data
+    const double sigma_min = 0.5 * min_width;
+    const double sigma_max = 10. * ( b.back() );
+
+    const unsigned int n = w.size();
+    vector< double > gamma_et[N_GAUSS];
+    vector< double > gamma[N_GAUSS];
+    for( int k = 0; k < N_GAUSS; k++ )
+    {
+        gamma_et[k].assign( n, 0. );
+        gamma[k].assign( n, 0. );
+    }
+
+    // EM iterations from the given starting values (updated in place),
+    // returns the log likelihood
+    auto run_em = [&]( double* sigma, double* weight ) -> double
+    {
+    double last_ll = -1.e99;
+    for( int iter = 0; iter < 20000; iter++ )
+    {
+        // E step
+        double ll = 0.;
+        for( unsigned int i = 0; i < n; i++ )
+        {
+            double q[N_GAUSS];
+            double et[N_GAUSS];
+            double total = 0.;
+            for( int k = 0; k < N_GAUSS; k++ )
+            {
+                const double s2 = 2. * sigma[k] * sigma[k];
+                const double ta = a[i] * a[i] / s2;
+                const double tb = b[i] * b[i] / s2;
+                const double ea = exp( -ta );
+                const double eb = exp( -tb );
+                const double p = ea - eb;
+                if( p > 1.e-300 )
+                {
+                    // mean of t = r^2/2sigma^2 for an exponential truncated to [ta,tb]
+                    et[k] = ( ( ta + 1. ) * ea - ( tb + 1. ) * eb ) / p;
+                }
+                else
+                {
+                    et[k] = 0.5 * ( ta + tb );
+                }
+                q[k] = weight[k] * p;
+                total += q[k];
+            }
+            if( total > 1.e-300 )
+            {
+                ll += w[i] * log( total );
+                for( int k = 0; k < N_GAUSS; k++ )
+                {
+                    gamma[k][i] = w[i] * q[k] / total;
+                    gamma_et[k][i] = gamma[k][i] * et[k];
+                }
+            }
+            else
+            {
+                // bin far outside all components: assign to the widest one
+                for( int k = 0; k < N_GAUSS; k++ )
+                {
+                    gamma[k][i] = ( k == N_GAUSS - 1 ) ? w[i] : 0.;
+                    gamma_et[k][i] = gamma[k][i] * et[k];
+                }
+            }
+        }
+
+        // M step
+        double g_all = 0.;
+        double ge_all = 0.;
+        for( int k = 0; k < N_GAUSS; k++ )
+        {
+            double g = 0.;
+            double ge = 0.;
+            for( unsigned int i = 0; i < n; i++ )
+            {
+                g += gamma[k][i];
+                ge += gamma_et[k][i];
+            }
+            weight[k] = g;
+            g_all += g;
+            ge_all += ge;
+            if( !sigma_ratio && g > 1.e-12 )
+            {
+                sigma[k] *= sqrt( ge / g );
+                sigma[k] = min( max( sigma[k], sigma_min ), sigma_max );
+            }
+        }
+        if( sigma_ratio && g_all > 0. )
+        {
+            // common scale of the components with fixed ratios
+            const double s = min( max( sigma[0] * sqrt( ge_all / g_all ), sigma_min ), sigma_max );
+            for( int k = 0; k < N_GAUSS; k++ ) sigma[k] = s * sigma_ratio[k];
+        }
+
+        if( iter > 0 && fabs( ll - last_ll ) < 1.e-13 * fabs( ll ) ) break;
+        last_ll = ll;
+    }
+    return last_ll;
+    };
+
+    // the likelihood of a mixture has local maxima: start from Gaussians
+    // scaled from the Gaussian-equivalent of R68 and keep the best result
+    const double sigma_r68 = r68 * 0.6624305;
+    const double start_scale[][N_GAUSS] = { { 0.5, 1.0, 2.5 },
+                                            { 0.3, 0.8, 1.5 },
+                                            { 0.6, 1.5, 4.0 } };
+    const double start_weight[N_GAUSS] = { 0.5, 0.35, 0.15 };
+    double sigma[N_GAUSS] = { 0., 0., 0. };
+    double weight[N_GAUSS] = { 0., 0., 0. };
+    double best_ll = -1.e99;
+    for( const auto& scales : start_scale )
+    {
+        double s[N_GAUSS];
+        double wt[N_GAUSS];
+        for( int k = 0; k < N_GAUSS; k++ )
+        {
+            // fixed shape: components scaled to start with a Gaussian of R68
+            s[k] = sigma_ratio ? sigma_r68 * scales[1] * sigma_ratio[k] / sigma_ratio[1]
+                               : sigma_r68 * scales[k];
+            s[k] = min( max( s[k], sigma_min ), sigma_max );
+            wt[k] = start_weight[k];
+        }
+        const double ll = run_em( s, wt );
+        if( ll > best_ll )
+        {
+            best_ll = ll;
+            for( int k = 0; k < N_GAUSS; k++ )
+            {
+                sigma[k] = s[k];
+                weight[k] = wt[k];
+            }
+        }
+    }
+
+    // order by increasing sigma
+    int order[N_GAUSS] = { 0, 1, 2 };
+    sort( order, order + N_GAUSS,
+          [&]( int x, int y ) { return sigma[x] < sigma[y]; } );
+    for( int k = 0; k < N_GAUSS; k++ )
+    {
+        m.sigma[k] = sigma[order[k]];
+        m.weight[k] = weight[order[k]];
+    }
+    m.valid = ( m.weight[0] > 0. );
+    return m;
+}
+
+/*
+ * containment radius of a binned radial distribution (linear interpolation)
+ */
+double containment_radius( const vector< double >& r_hi,
+                           const vector< double >& prob,
+                           double containment )
+{
+    double sum = 0.;
+    for( unsigned int i = 0; i < prob.size(); i++ ) sum += prob[i];
+    if( sum <= 0. ) return 0.;
+    double cum = 0.;
+    double r_last = 0.;
+    for( unsigned int i = 0; i < prob.size(); i++ )
+    {
+        const double next = cum + prob[i] / sum;
+        if( next >= containment )
+        {
+            const double f = prob[i] > 0. ? ( containment - cum ) / ( next - cum ) : 0.;
+            return r_last + f * ( r_hi[i] - r_last );
+        }
+        cum = next;
+        r_last = r_hi[i];
+    }
+    return r_last;
+}
+
+}
+
 /*
  *  Multi-Gauss mixture model
  *  https://gamma-astro-data-formats.readthedocs.io/en/latest/irfs/full_enclosure/psf/psf_3gauss/index.html#
+ *
+ *  Fits a mixture of three 2D Gaussians to the radial PSF distribution in each
+ *  true-energy and off-axis bin of the PSF histogram (same input as PSF_TABLE):
+ *
+ *  P(r) = SCALE * ( exp(-r^2/2 SIGMA_1^2) + AMPL_2 exp(-r^2/2 SIGMA_2^2)
+ *                                         + AMPL_3 exp(-r^2/2 SIGMA_3^2) )
+ *
+ *  with SCALE = 1 / ( 2 pi ( SIGMA_1^2 + AMPL_2 SIGMA_2^2 + AMPL_3 SIGMA_3^2 ) )
+ *  in sr^-1 (sigma in rad), such that P integrates to one.
+ *
+ *  h: PSF histogram (x: log10 E_true, y: radius [deg], z: off-axis angle [deg])
 */
-bool VDL3IRFs::write_psf_gauss( TH2F *h, char *instrument )
+bool VDL3IRFs::write_psf_gauss( TH3F *h, char *instrument )
 {
    if( !h ) return false;
 
    int status = 0;
+   const int nE = h->GetNbinsX();
+   const int nT = h->GetNbinsZ();
+   const int nR = h->GetNbinsY();
    const int nCol = 10;
-   long nRows = h->GetNbinsX() * h->GetNbinsY();
-   nRows = 0;
+   long nRows = 0;
    char* tType[nCol] = { (char*)"ENERG_LO",
                       (char*)"ENERG_HI",
                       (char*)"THETA_LO",
@@ -494,11 +751,11 @@ bool VDL3IRFs::write_psf_gauss( TH2F *h, char *instrument )
                       (char*)"",
                       (char*)"" };
    char x_form[10];
-   sprintf( x_form, "%dE", h->GetNbinsX() );
+   sprintf( x_form, "%dE", nE );
    char y_form[10];
-   sprintf( y_form, "%dE", h->GetNbinsY() );
+   sprintf( y_form, "%dE", nT );
    char z_form[10];
-   sprintf( z_form, "%dE", h->GetNbinsX()*h->GetNbinsY() );
+   sprintf( z_form, "%dE", nE * nT );
    char* tForm[nCol] = { &x_form[0],
                       &x_form[0],
                       &y_form[0],
@@ -524,7 +781,7 @@ bool VDL3IRFs::write_psf_gauss( TH2F *h, char *instrument )
        return printerror( status );
    }
    // set dimensions
-   long int naxes[] = { h->GetNbinsX(),  h->GetNbinsY() };
+   long int naxes[] = { nE, nT };
    int dim_colnum[] = { 5, 6, 7, 8, 9, 10 };
    for( int i = 0; i < 6; i++ )
    {
@@ -539,36 +796,148 @@ bool VDL3IRFs::write_psf_gauss( TH2F *h, char *instrument )
    }
    ///////////////
    // write data
-   vector< vector< float > > table = get_baseline_axes( h );
+   vector< vector< float > > table;
+   vector< float > xedge_low, xedge_hig, zedge_low, zedge_hig;
+   for( int i = 0; i < nE; i++ )
+   {
+       xedge_low.push_back( TMath::Power( 10., h->GetXaxis()->GetBinLowEdge( i+1 ) ) );
+       xedge_hig.push_back( TMath::Power( 10., h->GetXaxis()->GetBinUpEdge( i+1 ) ) );
+   }
+   for( int k = 0; k < nT; k++ )
+   {
+       zedge_low.push_back( h->GetZaxis()->GetBinLowEdge( k+1 ) );
+       zedge_hig.push_back( h->GetZaxis()->GetBinUpEdge( k+1 ) );
+   }
+   table.push_back( xedge_low );
+   table.push_back( xedge_hig );
+   table.push_back( zedge_low );
+   table.push_back( zedge_hig );
 
-   // data
-   vector< float > data;
-   vector< float > scale;
-   vector< float > empty;
-   for( int j = 0; j < h->GetNbinsY(); j++ )
+   vector< double > r_lo, r_hi;
+   for( int j = 0; j < nR; j++ )
    {
-       for( int i = 0; i < h->GetNbinsX(); i++ )
-      {
-          // convert 68% to 2D sigma
-          data.push_back( h->GetBinContent( i+1, j+1 ) * 0.6624305 );
-          if( data.back() > 0. )
-          {
-             float sigma_rad = data.back() * TMath::Pi() / 180.;
-             scale.push_back( 1./ (2.*sigma_rad*sigma_rad) );
-          }
-          else
-          {
-              scale.push_back( 0. );
-          }
-          empty.push_back( 0. );
-      }
+       r_lo.push_back( h->GetYaxis()->GetBinLowEdge( j+1 ) );
+       r_hi.push_back( h->GetYaxis()->GetBinUpEdge( j+1 ) );
    }
+
+   // read radial distributions (same statistics requirement as for PSF_TABLE)
+   vector< vector< double > > profile( nE * nT );
+   for( int k = 0; k < nT; k++ )
+   {
+       for( int i = 0; i < nE; i++ )
+       {
+           vector< double > prob( nR, 0. );
+           double sum = 0.;
+           for( int j = 0; j < nR; j++ )
+           {
+               prob[j] = h->GetBinContent( i+1, j+1, k+1 );
+               sum += prob[j];
+           }
+           if( sum > 10. ) profile[k*nE+i] = prob;
+       }
+   }
+
+   // Fitting every bin independently gives mixtures with unrelated components
+   // for noisy bins. As gammapy interpolates the parameters between bins,
+   // this results in wrong PSFs at energies between two bins.
+   // The shape (ratios of the sigmas) of the mixture is therefore determined
+   // from free fits, smoothed over neighbouring energy bins, and kept fixed
+   // when fitting the scale and the weights of each bin.
+   double n_eff_max = 0.;
+   vector< double > n_eff( nE * nT, 0. );
+   vector< GaussMixture > free_fit( nE * nT );
+   for( unsigned int p = 0; p < profile.size(); p++ )
+   {
+       free_fit[p].valid = false;
+       if( profile[p].empty() ) continue;
+       free_fit[p] = fit_gauss_mixture( r_lo, r_hi, profile[p],
+                                        containment_radius( r_hi, profile[p], 0.68 ),
+                                        0, &n_eff[p] );
+       n_eff_max = max( n_eff_max, n_eff[p] );
+   }
+   // log of sigma_k/sigma_1 and weight of each bin in the smoothing
+   vector< double > log_ratio[N_GAUSS];
+   vector< double > ratio_weight( nE * nT, 0. );
+   for( int c = 0; c < N_GAUSS; c++ ) log_ratio[c].assign( nE * nT, 0. );
+   for( unsigned int p = 0; p < profile.size(); p++ )
+   {
+       const GaussMixture& f = free_fit[p];
+       // ignore bins where a component is not used
+       if( f.valid && f.weight[1] > 0.02 && f.weight[2] > 0.005 )
+       {
+           ratio_weight[p] = min( n_eff[p], 0.1 * n_eff_max );
+           for( int c = 0; c < N_GAUSS; c++ ) log_ratio[c][p] = log( f.sigma[c] / f.sigma[0] );
+       }
+   }
+   const double kernel_width = 1.0;
+   int n_fitted = 0;
+   int n_failed = 0;
+   vector< float > scale, sigma[N_GAUSS], ampl[N_GAUSS];
+   // off-axis angle bins outer, true energy bins inner (as in the FITS table)
+   for( int k = 0; k < nT; k++ )
+   {
+       for( int i = 0; i < nE; i++ )
+       {
+           const vector< double >& prob = profile[k*nE+i];
+           GaussMixture m;
+           m.valid = false;
+           if( !prob.empty() )
+           {
+               double sigma_ratio[N_GAUSS] = { 1., 2., 4. };
+               double w_sum = 0.;
+               double l_sum[N_GAUSS] = { 0., 0., 0. };
+               for( int j = 0; j < nE; j++ )
+               {
+                   const double wj = ratio_weight[k*nE+j]
+                                   * exp( -0.5 * ( i - j ) * ( i - j ) / ( kernel_width * kernel_width ) );
+                   w_sum += wj;
+                   for( int c = 0; c < N_GAUSS; c++ ) l_sum[c] += wj * log_ratio[c][k*nE+j];
+               }
+               if( w_sum > 0. )
+               {
+                   for( int c = 0; c < N_GAUSS; c++ ) sigma_ratio[c] = exp( l_sum[c] / w_sum );
+               }
+               m = fit_gauss_mixture( r_lo, r_hi, prob,
+                                      containment_radius( r_hi, prob, 0.68 ),
+                                      sigma_ratio, 0 );
+               if( m.valid ) n_fitted++;
+               else          n_failed++;
+           }
+           if( m.valid )
+           {
+               const double s1 = m.sigma[0] * TMath::DegToRad();
+               // component k: weight_k / ( 2 pi sigma_k^2 ) = SCALE * AMPL_k
+               const double c1 = m.weight[0] / ( 2. * TMath::Pi() * s1 * s1 );
+               scale.push_back( c1 );
+               sigma[0].push_back( m.sigma[0] );
+               ampl[0].push_back( 1. );
+               for( int c = 1; c < N_GAUSS; c++ )
+               {
+                   const double sc = m.sigma[c] * TMath::DegToRad();
+                   const double ck = m.weight[c] / ( 2. * TMath::Pi() * sc * sc );
+                   sigma[c].push_back( m.sigma[c] );
+                   ampl[c].push_back( ck / c1 );
+               }
+           }
+           else
+           {
+               scale.push_back( 0. );
+               for( int c = 0; c < N_GAUSS; c++ ) sigma[c].push_back( 0. );
+               ampl[0].push_back( 0. );
+               for( int c = 1; c < N_GAUSS; c++ ) ampl[c].push_back( 0. );
+           }
+       }
+   }
+   cout << "\tPSF_3GAUSS: fitted " << n_fitted << " of " << nE * nT
+        << " (E_true, off-axis) bins";
+   if( n_failed > 0 ) cout << ", " << n_failed << " failed";
+   cout << endl;
+
    table.push_back( scale );
-   table.push_back( data );
-   for( unsigned int i = 0; i < 4; i++ )
-   {
-       table.push_back( empty );
-   }
+   for( int c = 0; c < N_GAUSS; c++ ) table.push_back( sigma[c] );
+   // AMPL_1 is fixed to one and not stored
+   table.push_back( ampl[1] );
+   table.push_back( ampl[2] );
 
    bool writing_success = write_table( table );
    if( writing_success )
