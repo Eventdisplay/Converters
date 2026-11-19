@@ -1,4 +1,5 @@
 #include "VDL3IRFs.h"
+#include <utility>
 
 VDL3IRFs::VDL3IRFs()
 {
@@ -135,12 +136,14 @@ bool VDL3IRFs::write_fits_table_header( string irftype, char *instrument )
                        datestr,
                        (char*)"File creation date (YYYY-MM-DDThh:mm:ss UTC)" );
 
+   if( irftype == "DIFFSENS_2D" ) return true;
+
    write_fits_keyword( (char*)"HDUDOC",
                        (char*)"https://github.com/open-gamma-ray-astro/gamma-astro-data-formats",
                        (char*)"" );
 
    write_fits_keyword( (char*)"HDUVERS",
-                       (char*)"0.2",
+                       (char*)"0.3",
                        (char*)"HDU version" );
 
    write_fits_keyword( (char*)"HDUCLASS",
@@ -328,9 +331,10 @@ bool VDL3IRFs::write_edisp( TH3F *h, char *instrument )
    {
        for( int j = 0; j < h->GetNbinsY(); j++ )
        {
+           double width = h->GetYaxis()->GetBinWidth( j+1 );
            for( int i = 0; i < h->GetNbinsX(); i++ )
            {
-               data.push_back( h->GetBinContent( i+1, j+1, k+1 ) );
+               data.push_back( width > 0. ? h->GetBinContent( i+1, j+1, k+1 ) / width : 0. );
            }
        }
    }
@@ -365,10 +369,10 @@ bool VDL3IRFs::write_psf_table( TH3F *h, char *instrument )
    nRows = 0;
    char* tType[nCol] = { (char*)"ENERG_LO",
                       (char*)"ENERG_HI",
-                      (char*)"RAD_LO",
-                      (char*)"RAD_HI",
                       (char*)"THETA_LO",
                       (char*)"THETA_HI",
+                      (char*)"RAD_LO",
+                      (char*)"RAD_HI",
                       (char*)"RPSF" };
    char* tUnit[nCol] = { (char*)"TeV",
                       (char*)"TeV",
@@ -393,10 +397,10 @@ bool VDL3IRFs::write_psf_table( TH3F *h, char *instrument )
                          * h->GetNbinsY() );
    char* tForm[nCol] = { &x_form[0],
                       &x_form[0],
-                      &y_form[0],
-                      &y_form[0],
                       &z_form[0],
                       &z_form[0],
+                      &y_form[0],
+                      &y_form[0],
                       &m_form[0] };
 
    ///////////////
@@ -415,8 +419,8 @@ bool VDL3IRFs::write_psf_table( TH3F *h, char *instrument )
    }
    // set dimensions
    long int naxes[] = { h->GetNbinsX(),
-                        h->GetNbinsY(),
-                        h->GetNbinsZ() };
+                        h->GetNbinsZ(),
+                        h->GetNbinsY() };
    if( fits_write_tdim( fptr,
                         7,
                         3,
@@ -428,15 +432,22 @@ bool VDL3IRFs::write_psf_table( TH3F *h, char *instrument )
    ///////////////
    // write data
    vector< vector< float > > table = get_baseline_axes( h );
+   std::swap( table[2], table[4] );
+   std::swap( table[3], table[5] );
 
    vector< float > data;
-   for( int k = 0; k < h->GetNbinsZ(); k++ )
+   for( int j = 0; j < h->GetNbinsY(); j++ )
    {
-       for( int j = 0; j < h->GetNbinsY(); j++ )
+       double radius_low = h->GetYaxis()->GetBinLowEdge( j+1 ) * TMath::DegToRad();
+       double radius_high = h->GetYaxis()->GetBinUpEdge( j+1 ) * TMath::DegToRad();
+       double solid_angle = 4. * TMath::Pi()
+                            * sin( ( radius_high + radius_low ) / 2. )
+                            * sin( ( radius_high - radius_low ) / 2. );
+       for( int k = 0; k < h->GetNbinsZ(); k++ )
        {
            for( int i = 0; i < h->GetNbinsX(); i++ )
            {
-               data.push_back( h->GetBinContent( i+1, j+1, k+1 ) );
+               data.push_back( solid_angle > 0. ? h->GetBinContent( i+1, j+1, k+1 ) / solid_angle : 0. );
            }
        }
    }
@@ -542,9 +553,8 @@ bool VDL3IRFs::write_psf_gauss( TH2F *h, char *instrument )
           data.push_back( h->GetBinContent( i+1, j+1 ) * 0.6624305 );
           if( data.back() > 0. )
           {
-             // SCALE = 1/(2*pi*sigma_rad^2)
              float sigma_rad = data.back() * TMath::Pi() / 180.;
-             scale.push_back( 1./ (2.*TMath::Pi()*sigma_rad*sigma_rad) );
+             scale.push_back( 1./ (2.*sigma_rad*sigma_rad) );
           }
           else
           {
