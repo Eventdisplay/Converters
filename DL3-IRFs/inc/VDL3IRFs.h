@@ -48,7 +48,7 @@ class VDL3IRFs
     bool write_effarea( TH2F *h, char* );
     bool write_edisp( TH3F *h, char* );
     bool write_diffsens( TH2F*, char* );
-    bool write_psf_gauss( TH2F *h, char* );
+    bool write_psf_gauss( TH3F *h, char*, string fit_report_base = "" );
     bool write_psf_table( TH3F *h, char* );
     bool write_fits_file();
 };
