@@ -3,8 +3,10 @@
 #include <cmath>
 #include <fstream>
 #include <iomanip>
+#include <regex>
 #include <utility>
 
+#include "TBox.h"
 #include "TCanvas.h"
 #include "TGraph.h"
 #include "TH1D.h"
@@ -13,6 +15,7 @@
 #include "TPad.h"
 #include "TROOT.h"
 #include "TStyle.h"
+#include "TText.h"
 
 VDL3IRFs::VDL3IRFs()
 {
@@ -825,6 +828,35 @@ PsfFitQuality evaluate_fit( const vector< double >& r_lo,
     return q;
 }
 
+string psf_metadata( const string& fits_name )
+{
+    static const regex production( R"(\.prod([0-9]+)-([^-\.]+)-([0-9]+)deg(?:-(dark|moon))?)" );
+    static const regex subarray( R"([.-]((?:[0-9]+(?:LSTs|MSTs|SSTs|SCMSTs))+)(?=[.-]))" );
+    static const regex duration( R"(\.([0-9]+s)\.fits(?:\.gz)?$)" );
+    smatch match;
+    if( !regex_search( fits_name, match, production ) ) return "";
+    string label = "Prod" + match.str( 1 ) + " | " + match.str( 2 ) + " " + match.str( 3 ) + " deg";
+    if( match[4].matched ) label += " | " + match.str( 4 );
+    if( regex_search( fits_name, match, subarray ) ) label += " | " + match.str( 1 );
+    if( regex_search( fits_name, match, duration ) ) label += " | " + match.str( 1 );
+    return label;
+}
+
+void draw_psf_plot_header( TCanvas& canvas, const string& fits_name, const string& title )
+{
+    canvas.cd();
+    TText text;
+    text.SetNDC();
+    text.SetTextAlign( 22 );
+    text.SetTextFont( 63 );
+    text.SetTextSize( 24 );
+    const string metadata = psf_metadata( fits_name );
+    text.DrawText( 0.5, 0.975, ( metadata.empty() ? title : title + " | " + metadata ).c_str() );
+    text.SetTextFont( 43 );
+    text.SetTextSize( min( 17., 0.9 * canvas.GetWw() / max( 1., 0.65 * fits_name.size() ) ) );
+    text.DrawText( 0.5, 0.942, fits_name.c_str() );
+}
+
 /*
  * Plot the fits: one image (<file_name>_offaxis<N>.png) per off-axis bin with up to six true energy bins
  * (density of the histogram, mixture and its components, enclosed fraction)
@@ -833,7 +865,8 @@ void plot_psf_fits( TH3F* h,
                     const vector< GaussMixture >& fit,
                     const vector< PsfFitQuality >& quality,
                     const vector< vector< double > >& profile,
-                    const string& file_name )
+                    const string& file_name,
+                    const string& fits_name )
 {
     const int nE = h->GetNbinsX();
     const int nT = h->GetNbinsZ();
@@ -843,6 +876,7 @@ void plot_psf_fits( TH3F* h,
     const bool batch = gROOT->IsBatch();
     gROOT->SetBatch( kTRUE );
     const int old_opt_stat = gStyle->GetOptStat();
+    const int old_opt_title = gStyle->GetOptTitle();
     gStyle->SetOptStat( 0 );
     gStyle->SetOptTitle( 0 );
 
@@ -878,6 +912,8 @@ void plot_psf_fits( TH3F* h,
         }
 
         TCanvas* c = new TCanvas( Form( "c_psf_%d", k ), "PSF fits", 1500, 1000 );
+        draw_psf_plot_header( *c, fits_name, Form( "PSF fits: offset %.2g - %.2g deg",
+                      h->GetZaxis()->GetBinLowEdge( k+1 ), h->GetZaxis()->GetBinUpEdge( k+1 ) ) );
         for( unsigned int p = 0; p < selected.size(); p++ )
         {
             const int i = selected[p];
@@ -971,8 +1007,8 @@ void plot_psf_fits( TH3F* h,
             // density pad
             const double x0 = ( p % nCol ) / double( nCol );
             const double x1 = ( p % nCol + 1 ) / double( nCol );
-            const double y1 = 1. - ( p / nCol ) / double( nRow );
-            const double y0 = 1. - ( p / nCol + 1 ) / double( nRow );
+            const double y1 = 0.91 * ( 1. - ( p / nCol ) / double( nRow ) );
+            const double y0 = 0.91 * ( 1. - ( p / nCol + 1 ) / double( nRow ) );
             const double ym = y0 + 0.33 * ( y1 - y0 );
             c->cd();
             TPad* pad = new TPad( Form( "pad_%d_%u", k, p ), "", x0, ym, x1, y1 );
@@ -1064,6 +1100,84 @@ void plot_psf_fits( TH3F* h,
         delete c;
     }
     gStyle->SetOptStat( old_opt_stat );
+    gStyle->SetOptTitle( old_opt_title );
+    gROOT->SetBatch( batch );
+}
+
+void plot_psf_fit_quality( TH3F* h,
+                           const vector< GaussMixture >& fit,
+                           const vector< PsfFitQuality >& quality,
+                           const string& file_name,
+                           const string& fits_name )
+{
+    const int nE = h->GetNbinsX();
+    const int nT = h->GetNbinsZ();
+    vector< double > energies( nE + 1 ), offsets( nT + 1 );
+    for( int bin = 0; bin <= nE; bin++ ) energies[bin] = pow( 10., h->GetXaxis()->GetBinLowEdge( bin+1 ) );
+    for( int bin = 0; bin <= nT; bin++ ) offsets[bin] = h->GetZaxis()->GetBinLowEdge( bin+1 );
+
+    const bool batch = gROOT->IsBatch();
+    gROOT->SetBatch( kTRUE );
+    {
+        TCanvas canvas( "psf_quality", "PSF fit quality", 1500, 550 );
+        draw_psf_plot_header( canvas, fits_name, "PSF goodness of fit" );
+        const char* labels[] = { "Reduced chi-square", "KS distance", "Absolute R68 deviation [%]" };
+        for( int metric = 0; metric < 3; metric++ )
+        {
+            canvas.cd();
+            auto* pad = new TPad( Form( "psf_quality_%d", metric ), "", metric / 3., 0.06, ( metric+1 ) / 3., 0.89 );
+            pad->SetLogx();
+            pad->SetLeftMargin( 0.14 );
+            pad->SetRightMargin( 0.18 );
+            pad->SetBottomMargin( 0.13 );
+            pad->Draw();
+            pad->cd();
+
+            TH2D map( Form( "psf_quality_map_%d", metric ), ";True energy [TeV];Offset [deg]",
+                      nE, energies.data(), nT, offsets.data() );
+            map.SetDirectory( nullptr );
+            map.SetStats( false );
+            map.SetMinimum( 0. );
+            TBox missing;
+            missing.SetFillColor( kGray );
+            vector< pair< int, int > > missing_bins;
+            for( int offset = 0; offset < nT; offset++ )
+            {
+                for( int energy = 0; energy < nE; energy++ )
+                {
+                    const auto& q = quality[offset*nE+energy];
+                    double value = -1.;
+                    if( fit[offset*nE+energy].valid )
+                    {
+                        if( metric == 0 && q.ndf > 0 ) value = q.chi2 / q.ndf;
+                        if( metric == 1 ) value = q.ks;
+                        if( metric == 2 && q.r68_table > 0. ) value = 100. * fabs( q.r68_fit / q.r68_table - 1. );
+                    }
+                    if( value >= 0. && isfinite( value ) ) map.SetBinContent( energy+1, offset+1, max( value, 1.e-15 ) );
+                    else missing_bins.emplace_back( energy, offset );
+                }
+            }
+            map.SetMaximum( max( map.GetMaximum(), metric == 0 ? 3. : metric == 1 ? 0.01 : 1. ) );
+            map.DrawCopy( "COLZ" );
+            for( const auto& bin : missing_bins )
+            {
+                missing.DrawBox( energies[bin.first], offsets[bin.second], energies[bin.first+1], offsets[bin.second+1] );
+            }
+            pad->RedrawAxis();
+            TText label;
+            label.SetNDC();
+            label.SetTextAlign( 22 );
+            label.SetTextSize( 0.044 );
+            label.DrawText( 0.48, 0.95, labels[metric] );
+        }
+        canvas.cd();
+        TText legend;
+        legend.SetNDC();
+        legend.SetTextAlign( 22 );
+        legend.SetTextSize( 0.033 );
+        legend.DrawText( 0.5, 0.035, "Gray: no fit or metric unavailable (e.g. insufficient events for chi-square)" );
+        canvas.Print( file_name.c_str() );
+    }
     gROOT->SetBatch( batch );
 }
 
@@ -1122,7 +1236,7 @@ void write_psf_fit_report( TH3F* h,
  *  fit_report_base: if not empty, write the fit quality of each bin to
  *  <fit_report_base>_psf_fit.csv and plots of the fits to <fit_report_base>_psf_fit_offaxis<N>.png
 */
-bool VDL3IRFs::write_psf_gauss( TH3F *h, char *instrument, string fit_report_base )
+bool VDL3IRFs::write_psf_gauss( TH3F *h, char *instrument, string fit_report_base, const string& fits_name )
 {
    if( !h ) return false;
 
@@ -1417,8 +1531,11 @@ bool VDL3IRFs::write_psf_gauss( TH3F *h, char *instrument, string fit_report_bas
        const string plot_name = fit_report_base + "_psf_fit";
        write_psf_fit_report( h, final_fit, quality, csv_name );
        cout << "\tPSF_3GAUSS fit report written to " << csv_name << endl;
-       plot_psf_fits( h, final_fit, quality, profile, plot_name );
+    plot_psf_fits( h, final_fit, quality, profile, plot_name, fits_name );
        cout << "\tPSF_3GAUSS fit plots written to " << plot_name << "_offaxis<N>.png" << endl;
+    const string quality_name = plot_name + "_quality.png";
+    plot_psf_fit_quality( h, final_fit, quality, quality_name, fits_name );
+    cout << "\tPSF_3GAUSS fit quality plot written to " << quality_name << endl;
    }
 
    table.push_back( scale );

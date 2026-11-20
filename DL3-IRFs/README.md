@@ -31,7 +31,7 @@ make convertSensitivityFilesToFITS
 General syntax:
 
 ```bash
-./convertSensitivityFilesToFITS <file.root> <file.fits.gz> 3D
+./convertSensitivityFilesToFITS <file.root> <file.fits.gz> 3D [noplots | --fit-output-dir DIR]
 ```
 
 (3D option is the default)
@@ -44,7 +44,7 @@ $  docker run --rm -it -v "$(pwd)":/workdir \
    /data/Converters/DL3-IRFs/convertSensitivityFilesToFITS \
    /workdir/Prod5-South-20deg-AverageAz-14MSTs37SSTs.180000s-v0.1.root \
    /workdir/Prod5-South-20deg-AverageAz-14MSTs37SSTs.180000s-v0.1.fits.gz \
-   3D
+  3D --fit-output-dir /workdir/psf_fit_diagnostics
 ```
 
 ## Point-spread function
@@ -59,10 +59,15 @@ Both PSF HDUs are derived from the radial distributions in `AngularPSF2DEtrue_of
 
 ### PSF fit report and plots
 
-For each converted file, the goodness of the `PSF_3GAUSS` fits is printed in the conversion report and written next to the FITS file (use the optional last argument `noplots` to skip this):
+For each converted file, goodness-of-fit statistics are printed to the console. The CSV and PNG diagnostics go into a directory named `<FITS-directory>_psf_fit_diagnostics` alongside the FITS directory by default. Override it with `--fit-output-dir DIR`, or use `noplots` to skip writing diagnostics. When running in a container, choose a diagnostics path on a writable host mount.
 
 - `<name>_psf_fit.csv`: fit parameters and quality of each fitted bin.
 - `<name>_psf_fit_offaxis<N>.png`: one plot per off-axis bin with six true-energy bins each: radial PSF density of the histogram and of the fit (with its three components), and the ratio of the enclosed fractions.
+- `<name>_psf_fit_quality.png`: a per-file overview of reduced chi-square, KS distance, and absolute relative R68 deviation across true-energy and off-axis bins. Gray bins have no fit or no value for that metric.
+
+Each PNG shows the exact FITS basename and, when recognized, the production, site, zenith angle, light conditions, subarray, and exposure encoded in it.
+
+From the repository root, `bash convert_all_irfs.sh --north` keeps the FITS subdirectories and writes all diagnostics directly to `DL3-IRFs/north_irf_conversion_goodness_of_fit`. The `--south` batch uses `DL3-IRFs/south_irf_conversion_goodness_of_fit`. Either accepts `--fit-output-dir DIR` to override the shared directory. Rebuild the Podman image with the updated converter before using the option. The batch still skips existing FITS files, so use a fresh FITS output or rerun those conversions individually to generate new diagnostics for existing files.
 
 Goodness-of-fit metrics (per bin, shown in the plots and in the CSV file):
 
